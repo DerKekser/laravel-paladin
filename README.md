@@ -4,9 +4,13 @@
 
 Laravel Paladin is an intelligent Laravel package that monitors your application logs, detects errors, and automatically attempts to fix them using AI-powered code generation. It creates isolated git worktrees for each fix attempt, runs tests to verify the fixes, and creates pull requests when successful.
 
+## Inspiration
+
+This package was inspired by Taylor Otwell's demonstration of a self-healing Laravel application at Laracon 2025 in Amsterdam. After seeing the potential of AI-powered autonomous error fixing, I set out to build a practical implementation that any Laravel developer could use in their applications.
+
 ## Features
 
-- 🤖 **AI-Powered Analysis**: Uses Google Gemini to analyze and categorize errors
+- 🤖 **AI-Powered Analysis**: Supports multiple AI providers including OpenAI, Anthropic Claude, Google Gemini, and more
 - 🔧 **Autonomous Fixing**: Leverages OpenCode to generate and apply fixes automatically
 - 🌿 **Safe Isolation**: Each fix attempt runs in a separate git worktree
 - ✅ **Test Verification**: Runs your test suite to ensure fixes don't break anything
@@ -21,7 +25,7 @@ Laravel Paladin is an intelligent Laravel package that monitors your application
 - Laravel 11.x or 12.x
 - Git installed and configured
 - A git repository for your Laravel project
-- Google Gemini API key
+- AI provider API key (see supported providers below)
 - (Optional) GitHub or Azure DevOps token for PR creation
 
 ## Installation
@@ -29,7 +33,7 @@ Laravel Paladin is an intelligent Laravel package that monitors your application
 ### 1. Install the Package
 
 ```bash
-composer require kekser/laravel-paladin
+composer require derkekser/laravel-paladin
 ```
 
 ### 2. Publish Configuration and Migrations
@@ -50,41 +54,40 @@ php artisan migrate
 Add the following to your `.env` file:
 
 ```env
-# Required: Google Gemini Configuration
-GEMINI_API_KEY=your-gemini-api-key
+# Enable/Disable Paladin
+PALADIN_ENABLED=true
+
+# AI Provider Configuration
+# Supported providers: anthropic, azure, cohere, deepseek, gemini, groq, mistral, ollama, openai, openrouter, xai
 PALADIN_AI_PROVIDER=gemini
 PALADIN_AI_MODEL=gemini-2.0-flash-exp
 
+# Provider-specific API keys (choose based on your provider)
+GEMINI_API_KEY=your-gemini-api-key
+# OPENAI_API_KEY=your-openai-api-key
+# ANTHROPIC_API_KEY=your-anthropic-api-key
+# (see config/paladin.php for all provider options)
+
 # Log Monitoring
 PALADIN_LOG_CHANNELS=stack,single
-PALADIN_LOG_LEVELS=error,critical,alert,emergency
 
 # Git Configuration
-PALADIN_WORKTREE_PATH=../paladin-worktrees/
-PALADIN_BASE_BRANCH=main
+PALADIN_WORKTREE_PATH=../paladin-worktrees
+PALADIN_DEFAULT_BRANCH=main
 
-# Pull Request Provider (github, azure, or mail)
-PALADIN_PR_DRIVER=github
+# Pull Request Provider (github, azure-devops, or mail)
+PALADIN_PR_PROVIDER=github
 
 # GitHub Configuration (if using GitHub)
 PALADIN_GITHUB_TOKEN=your-github-token
-PALADIN_GITHUB_OWNER=your-username-or-org
-PALADIN_GITHUB_REPO=your-repo-name
 
 # Azure DevOps Configuration (if using Azure)
-PALADIN_AZURE_TOKEN=your-azure-token
-PALADIN_AZURE_ORGANIZATION=your-org
-PALADIN_AZURE_PROJECT=your-project
-PALADIN_AZURE_REPOSITORY=your-repo
+PALADIN_AZURE_DEVOPS_PAT=your-azure-token
+PALADIN_AZURE_DEVOPS_ORG=your-org
+PALADIN_AZURE_DEVOPS_PROJECT=your-project
 
 # Email Configuration (if using Mail)
 PALADIN_MAIL_TO=admin@example.com
-PALADIN_MAIL_SUBJECT="Laravel Paladin Fix Notification"
-
-# Healing Configuration
-PALADIN_MAX_FIX_ATTEMPTS=3
-PALADIN_OPENCODE_TIMEOUT=300
-PALADIN_TEST_TIMEOUT=300
 ```
 
 ### 5. Configure Queue (Recommended)
@@ -124,12 +127,45 @@ To run the healing process synchronously (useful for debugging):
 php artisan paladin:heal --sync
 ```
 
-### Custom Max Attempts
+### Check Healing Status
 
-Override the maximum number of fix attempts:
+View the status of recent healing attempts:
 
 ```bash
-php artisan paladin:heal --max-attempts=5
+# Show overall statistics and recent attempts
+php artisan paladin:status
+
+# Filter by status
+php artisan paladin:status --status=fixed
+php artisan paladin:status --status=failed
+php artisan paladin:status --status=in_progress
+
+# Show more attempts
+php artisan paladin:status --limit=20
+
+# Show detailed information including stack traces
+php artisan paladin:status --verbose
+```
+
+### Cleanup Old Worktrees
+
+Clean up old worktrees to free disk space:
+
+```bash
+# Interactive cleanup of worktrees older than configured days
+php artisan paladin:cleanup
+
+# Skip confirmation
+php artisan paladin:cleanup --force
+
+# Override cleanup threshold
+php artisan paladin:cleanup --days=14
+
+# Dry run to see what would be deleted
+php artisan paladin:cleanup --dry-run
+
+# Delete all worktrees (use with caution)
+php artisan paladin:cleanup --all
 ```
 
 ### Scheduled Healing
@@ -153,56 +189,106 @@ The configuration file `config/paladin.php` provides extensive customization opt
 
 ### AI Configuration
 
+Laravel Paladin supports multiple AI providers through the Laravel AI SDK:
+
+**Supported Providers:**
+- `anthropic` - Claude models (requires `ANTHROPIC_API_KEY`)
+- `azure` - Azure OpenAI (requires `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`)
+- `cohere` - Cohere models (requires `COHERE_API_KEY`)
+- `deepseek` - DeepSeek models (requires `DEEPSEEK_API_KEY`)
+- `gemini` - Google Gemini (requires `GEMINI_API_KEY`) - **default**
+- `groq` - Groq models (requires `GROQ_API_KEY`)
+- `mistral` - Mistral AI (requires `MISTRAL_API_KEY`)
+- `ollama` - Local Ollama models (optional: `OLLAMA_BASE_URL`)
+- `openai` - OpenAI GPT models (requires `OPENAI_API_KEY`)
+- `openrouter` - OpenRouter (requires `OPENROUTER_API_KEY`)
+- `xai` - xAI models (requires `XAI_API_KEY`)
+
 ```php
 'ai' => [
     'provider' => env('PALADIN_AI_PROVIDER', 'gemini'),
     'model' => env('PALADIN_AI_MODEL', 'gemini-2.0-flash-exp'),
-    'gemini_api_key' => env('GEMINI_API_KEY'),
-    'temperature' => 0.7,
-    'max_tokens' => 4096,
+    'temperature' => env('PALADIN_AI_TEMPERATURE', 0.7),
 ],
+```
+
+**Example Configurations:**
+
+```env
+# OpenAI GPT-4
+PALADIN_AI_PROVIDER=openai
+PALADIN_AI_MODEL=gpt-4o
+OPENAI_API_KEY=sk-proj-...
+
+# Anthropic Claude
+PALADIN_AI_PROVIDER=anthropic
+PALADIN_AI_MODEL=claude-3-5-sonnet-20241022
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Local Ollama
+PALADIN_AI_PROVIDER=ollama
+PALADIN_AI_MODEL=llama3.2
+OLLAMA_BASE_URL=http://localhost:11434  # optional
 ```
 
 ### Log Monitoring
 
 ```php
-'log_channels' => explode(',', env('PALADIN_LOG_CHANNELS', 'stack')),
-'log_levels' => explode(',', env('PALADIN_LOG_LEVELS', 'error,critical,alert,emergency')),
-'max_log_entries' => 100,
+'log' => [
+    'channels' => env('PALADIN_LOG_CHANNELS', 'stack,single'),
+    'levels' => ['error', 'critical', 'alert', 'emergency'],
+    'storage_path' => storage_path('logs'),
+],
 ```
 
 ### Git Configuration
 
 ```php
-'worktree_path' => env('PALADIN_WORKTREE_PATH', '../paladin-worktrees/'),
-'base_branch' => env('PALADIN_BASE_BRANCH', 'main'),
-'branch_prefix' => 'paladin-fix/',
+'worktree' => [
+    'base_path' => env('PALADIN_WORKTREE_PATH', '../paladin-worktrees'),
+    'naming_pattern' => 'paladin-fix-{issue_id}-{timestamp}',
+    'cleanup_after_success' => true,
+    'cleanup_after_days' => 7,
+],
+
+'git' => [
+    'default_branch' => env('PALADIN_DEFAULT_BRANCH', 'main'),
+    'branch_prefix' => 'paladin/fix',
+],
 ```
 
 ### Pull Request Configuration
 
 ```php
-'pull_request' => [
-    'driver' => env('PALADIN_PR_DRIVER', 'github'),
-    
+'pr_provider' => env('PALADIN_PR_PROVIDER', 'github'),
+
+'providers' => [
     'github' => [
         'token' => env('PALADIN_GITHUB_TOKEN'),
-        'owner' => env('PALADIN_GITHUB_OWNER'),
-        'repo' => env('PALADIN_GITHUB_REPO'),
-        'base_branch' => env('PALADIN_BASE_BRANCH', 'main'),
+        'api_url' => env('PALADIN_GITHUB_API_URL', 'https://api.github.com'),
     ],
     
-    // ... Azure DevOps and Mail configurations
+    'azure-devops' => [
+        'organization' => env('PALADIN_AZURE_DEVOPS_ORG'),
+        'project' => env('PALADIN_AZURE_DEVOPS_PROJECT'),
+        'token' => env('PALADIN_AZURE_DEVOPS_PAT'),
+        'api_url' => env('PALADIN_AZURE_DEVOPS_URL', 'https://dev.azure.com'),
+    ],
+    
+    'mail' => [
+        'to' => env('PALADIN_MAIL_TO'),
+        'from' => env('PALADIN_MAIL_FROM', env('MAIL_FROM_ADDRESS')),
+    ],
 ],
 ```
 
 ## How It Works
 
 1. **Log Scanning**: Paladin scans your configured log channels for errors
-2. **AI Analysis**: Google Gemini analyzes each error and categorizes it by type and severity
+2. **AI Analysis**: Your configured AI provider analyzes each error and categorizes it by type and severity
 3. **Prioritization**: Issues are prioritized (critical → high → medium → low)
 4. **Worktree Creation**: A git worktree is created for isolated fix attempts
-5. **AI Prompt Generation**: Gemini generates a detailed prompt for OpenCode
+5. **AI Prompt Generation**: The AI generates a detailed prompt for OpenCode
 6. **Code Fixing**: OpenCode applies the fix in the worktree
 7. **Testing**: Your test suite runs to verify the fix
 8. **Pull Request**: If tests pass, a PR is created (or email sent)
@@ -262,11 +348,12 @@ git worktree remove ../paladin-worktrees/paladin-fix-1234567890
 git worktree prune
 ```
 
-### Gemini API Errors
+### AI API Errors
 
-- Verify your `GEMINI_API_KEY` is correct
+- Verify your API key is correct for your chosen provider
 - Check if you've exceeded API rate limits
-- Ensure the model name is correct (`gemini-2.0-flash-exp` or similar)
+- Ensure the model name is correct for your provider
+- For specific provider issues, consult their documentation
 
 ### Tests Not Running
 
@@ -285,12 +372,9 @@ The MIT License (MIT). Please see [LICENSE](LICENSE) file for more information.
 ## Credits
 
 - Built with [Laravel AI SDK](https://github.com/laravel/ai)
-- Powered by [Google Gemini](https://deepmind.google/technologies/gemini/)
+- Built with [Spatie Laravel Package Tools](https://github.com/spatie/laravel-package-tools)
 - Code fixing by [OpenCode](https://opencode.ai)
-- Inspired by [Spatie's package skeleton](https://github.com/spatie/package-skeleton-laravel)
 
 ## Support
 
-If you discover any security vulnerabilities, please email security@example.com instead of using the issue tracker.
-
-For general support and questions, please use the [GitHub Issues](https://github.com/kekser/laravel-paladin/issues) page.
+For general support and questions, please use the [GitHub Issues](https://github.com/DerKekser/laravel-paladin/issues) page.

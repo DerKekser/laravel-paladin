@@ -1,5 +1,5 @@
 {
-    "name": "kekser/laravel-paladin",
+    "name": "derkekser/laravel-paladin",
     "description": "Autonomous self-healing for Laravel applications using AI",
     "keywords": [
         "laravel",
@@ -9,7 +9,7 @@
         "debugging",
         "paladin"
     ],
-    "homepage": "https://github.com/kekser/laravel-paladin",
+    "homepage": "https://github.com/DerKekser/laravel-paladin",
     "license": "MIT",
     "authors": [
         {
