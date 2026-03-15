@@ -6,17 +6,32 @@ use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasStructuredOutput;
 use Laravel\Ai\Enums\Lab;
-use Laravel\Ai\Attributes\Provider;
 use Laravel\Ai\Attributes\Model;
 use Laravel\Ai\Promptable;
 use Stringable;
 
-#[Provider(Lab::Gemini)]
 class IssueAnalyzer implements Agent, HasStructuredOutput
 {
     use Promptable;
 
     protected array $logEntries = [];
+    protected Lab $provider;
+
+    /**
+     * Set the AI provider to use for this agent.
+     */
+    public function setProvider(Lab $provider): void
+    {
+        $this->provider = $provider;
+    }
+
+    /**
+     * Get the AI provider for this agent (used by Laravel AI).
+     */
+    public function provider(): Lab
+    {
+        return $this->provider;
+    }
 
     /**
      * Get the instructions that the agent should follow.
@@ -55,6 +70,7 @@ INSTRUCTIONS;
                 'severity' => $schema->enum(['critical', 'high', 'medium', 'low'])->required(),
                 'title' => $schema->string()->description('Short, descriptive title for the issue')->required(),
                 'message' => $schema->string()->description('Full error message')->required(),
+                'stack_trace' => $schema->string()->description('Stack trace from the error log'),
                 'affected_files' => $schema->array()->items($schema->string())->description('List of files mentioned in the stack trace'),
                 'suggested_fix' => $schema->string()->description('Brief suggestion on how to fix this issue')->required(),
                 'log_level' => $schema->string()->description('Original log level (error, critical, etc.)')->required(),
@@ -93,6 +109,14 @@ INSTRUCTIONS;
      */
     protected function getModel(): string
     {
-        return config('paladin.ai.model_analysis', 'gemini-2.0-flash-exp');
+        return config('paladin.ai.model', 'gemini-2.0-flash-exp');
+    }
+
+    /**
+     * Get temperature configuration from package config.
+     */
+    protected function temperature(): float
+    {
+        return config('paladin.ai.temperature', 0.7);
     }
 }

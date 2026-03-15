@@ -8,8 +8,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Kekser\LaravelPaladin\Ai\Agents\IssueAnalyzer;
-use Kekser\LaravelPaladin\Ai\Agents\PromptGenerator;
+use Kekser\LaravelPaladin\Ai\AgentFactory;
 use Kekser\LaravelPaladin\Models\HealingAttempt;
 use Kekser\LaravelPaladin\Services\LogScanner;
 use Kekser\LaravelPaladin\Services\OpenCodeInstaller;
@@ -121,7 +120,8 @@ class ProcessSelfHealingJob implements ShouldQueue
     {
         Log::info('[Paladin] Analyzing issues with AI');
 
-        $analyzer = new IssueAnalyzer();
+        $factory = app(AgentFactory::class);
+        $analyzer = $factory->createIssueAnalyzer();
         $issues = $analyzer->analyze($logEntries);
 
         // Sort by severity
@@ -258,7 +258,8 @@ class ProcessSelfHealingJob implements ShouldQueue
                 $testFailureOutput = $previousAttempt?->test_output;
             }
             
-            $promptGenerator = new PromptGenerator($issue, $testFailureOutput);
+            $factory = app(AgentFactory::class);
+            $promptGenerator = $factory->createPromptGenerator($issue, $testFailureOutput);
             $prompt = $promptGenerator->generate();
 
             $healingAttempt->update(['opencode_prompt' => $prompt]);

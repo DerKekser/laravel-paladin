@@ -4,19 +4,35 @@ namespace Kekser\LaravelPaladin\Ai\Agents;
 
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Enums\Lab;
-use Laravel\Ai\Attributes\Provider;
 use Laravel\Ai\Promptable;
 use Stringable;
 
-#[Provider(Lab::Gemini)]
 class PromptGenerator implements Agent
 {
     use Promptable;
+
+    protected Lab $provider;
 
     public function __construct(
         protected array $issue,
         protected ?string $testFailureOutput = null
     ) {
+    }
+
+    /**
+     * Set the AI provider to use for this agent.
+     */
+    public function setProvider(Lab $provider): void
+    {
+        $this->provider = $provider;
+    }
+
+    /**
+     * Get the AI provider for this agent (used by Laravel AI).
+     */
+    public function provider(): Lab
+    {
+        return $this->provider;
     }
 
     /**
@@ -105,6 +121,14 @@ INSTRUCTIONS;
      */
     protected function getModel(): string
     {
-        return config('paladin.ai.model_prompts', 'gemini-2.0-flash-exp');
+        return config('paladin.ai.model', 'gemini-2.0-flash-exp');
+    }
+
+    /**
+     * Get temperature configuration from package config.
+     */
+    protected function temperature(): float
+    {
+        return config('paladin.ai.temperature', 0.7);
     }
 }

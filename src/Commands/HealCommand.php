@@ -3,6 +3,7 @@
 namespace Kekser\LaravelPaladin\Commands;
 
 use Illuminate\Console\Command;
+use Kekser\LaravelPaladin\Ai\AgentFactory;
 use Kekser\LaravelPaladin\Jobs\ProcessSelfHealingJob;
 
 class HealCommand extends Command
@@ -82,19 +83,12 @@ class HealCommand extends Command
     {
         $errors = [];
 
-        // Check if AI provider is configured
-        if (!config('paladin.ai.provider')) {
-            $errors[] = 'AI provider not configured. Set PALADIN_AI_PROVIDER in your .env file.';
-        }
-
-        // Check if AI model is configured
-        if (!config('paladin.ai.model_analysis') || !config('paladin.ai.model_prompts')) {
-            $errors[] = 'AI models not configured. Set PALADIN_AI_MODEL_ANALYSIS and PALADIN_AI_MODEL_PROMPTS in your .env file.';
-        }
-
-        // Check if Gemini API key is set (if using Gemini)
-        if (config('paladin.ai.provider') === 'gemini' && !env('GEMINI_API_KEY')) {
-            $errors[] = 'Gemini API key not configured. Set GEMINI_API_KEY in your .env file.';
+        // Validate AI configuration by attempting to instantiate factory
+        // This will check provider support and required env variables
+        try {
+            app(AgentFactory::class);
+        } catch (\Exception $e) {
+            $errors[] = $e->getMessage();
         }
 
         // Check if git is available
@@ -112,17 +106,17 @@ class HealCommand extends Command
             $errors[] = 'No log channels configured. Set PALADIN_LOG_CHANNELS in your .env file.';
         }
 
-        // Check if PR driver is configured properly
-        $prDriver = config('paladin.pr_provider');
-        if ($prDriver === 'github' && !config('paladin.providers.github.token')) {
+        // Check if PR provider is configured properly
+        $prProvider = config('paladin.pr_provider');
+        if ($prProvider === 'github' && !config('paladin.providers.github.token')) {
             $errors[] = 'GitHub token not configured. Set PALADIN_GITHUB_TOKEN in your .env file.';
         }
 
-        if ($prDriver === 'azure-devops' && (!config('paladin.providers.azure-devops.organization') || !config('paladin.providers.azure-devops.token'))) {
+        if ($prProvider === 'azure-devops' && (!config('paladin.providers.azure-devops.organization') || !config('paladin.providers.azure-devops.token'))) {
             $errors[] = 'Azure DevOps not fully configured. Set PALADIN_AZURE_DEVOPS_ORG and PALADIN_AZURE_DEVOPS_PAT in your .env file.';
         }
 
-        if ($prDriver === 'mail' && !config('paladin.providers.mail.to')) {
+        if ($prProvider === 'mail' && !config('paladin.providers.mail.to')) {
             $errors[] = 'Mail recipient not configured. Set PALADIN_MAIL_TO in your .env file.';
         }
 
