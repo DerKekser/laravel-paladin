@@ -24,6 +24,11 @@ class HealingAttempt extends Model
         'error_message',
     ];
 
+    protected $attributes = [
+        'status' => 'pending',
+        'attempt_number' => 1,
+    ];
+
     protected $casts = [
         'affected_files' => 'array',
     ];

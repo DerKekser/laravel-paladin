@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/11.0/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         failOnRisky="true"
+         failOnWarning="true"
+         stopOnFailure="false"
+         executionOrder="random"
+         cacheDirectory=".phpunit.cache"
+         beStrictAboutOutputDuringTests="true">
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory suffix=".php">src</directory>
+        </include>
+        <exclude>
+            <directory>src/Contracts</directory>
+        </exclude>
+    </source>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="DB_CONNECTION" value="sqlite"/>
+        <env name="DB_DATABASE" value=":memory:"/>
+        <env name="CACHE_DRIVER" value="array"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="MAIL_MAILER" value="array"/>
+        
+        <!-- Paladin Test Configuration -->
+        <env name="PALADIN_ENABLED" value="true"/>
+        <env name="PALADIN_AI_PROVIDER" value="gemini"/>
+        <env name="PALADIN_AI_MODEL" value="gemini-2.0-flash-exp"/>
+        <env name="GEMINI_API_KEY" value="test-gemini-key"/>
+        <env name="PALADIN_GITHUB_TOKEN" value="test-github-token"/>
+        <env name="PALADIN_GITHUB_OWNER" value="test-owner"/>
+        <env name="PALADIN_GITHUB_REPO" value="test-repo"/>
+        <env name="PALADIN_AZURE_DEVOPS_ORG" value="test-org"/>
+        <env name="PALADIN_AZURE_DEVOPS_PROJECT" value="test-project"/>
+        <env name="PALADIN_AZURE_DEVOPS_PAT" value="test-pat"/>
+        <env name="PALADIN_MAIL_TO" value="test@example.com"/>
+        <env name="PALADIN_MAIL_FROM" value="paladin@example.com"/>
+        <env name="PALADIN_LOG_CHANNELS" value="stack,single"/>
+        <env name="PALADIN_WORKTREE_PATH" value="/tmp/test-worktrees"/>
+        <env name="PALADIN_DEFAULT_BRANCH" value="main"/>
+    </php>
+    <coverage/>
+</phpunit>

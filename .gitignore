@@ -11,4 +11,4 @@ Thumbs.db
 *.swo
 *~
 .editorconfig
-
+.phpunit.cache

@@ -1,0 +1,11 @@
+{
+  "type": "runtime_error",
+  "severity": "high",
+  "title": "Division by zero in UserController",
+  "message": "Division by zero error occurring in user statistics calculation. The calculate() method is being called with a zero divisor.",
+  "stack_trace": "#0 /var/www/app/Http/Controllers/UserController.php(42): calculate()\n#1 /var/www/app/Http/Controllers/UserController.php(25): App\\Http\\Controllers\\UserController->getStatistics()\n#2 [internal function]: App\\Http\\Controllers\\UserController->index()",
+  "affected_files": [
+    "app/Http/Controllers/UserController.php"
+  ],
+  "suggested_fix": "Add validation to check that the divisor is not zero before performing the division operation. Consider adding a guard clause at the beginning of the calculate() method."
+}

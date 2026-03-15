@@ -1,0 +1,20 @@
+{
+  "pullRequestId": 123,
+  "status": "active",
+  "title": "[Paladin] Fix: Division by zero error",
+  "description": "Automated fix by Laravel Paladin",
+  "sourceRefName": "refs/heads/paladin/fix/issue-1",
+  "targetRefName": "refs/heads/main",
+  "repository": {
+    "id": "abc-123",
+    "name": "test-repo",
+    "project": {
+      "name": "test-project"
+    }
+  },
+  "url": "https://dev.azure.com/test-org/test-project/_git/test-repo/pullrequest/123",
+  "createdBy": {
+    "displayName": "Paladin Bot"
+  },
+  "creationDate": "2026-03-15T10:30:00Z"
+}

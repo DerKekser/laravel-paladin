@@ -20,9 +20,9 @@ class AgentFactory
      */
     public function createIssueAnalyzer(): IssueAnalyzer
     {
-        $analyzer = new IssueAnalyzer();
+        $analyzer = new IssueAnalyzer;
         $analyzer->setProvider($this->provider);
-        
+
         return $analyzer;
     }
 
@@ -33,7 +33,7 @@ class AgentFactory
     {
         $generator = new PromptGenerator($issue, $testFailureOutput);
         $generator->setProvider($this->provider);
-        
+
         return $generator;
     }
 
@@ -44,7 +44,7 @@ class AgentFactory
     {
         $providerName = config('paladin.ai.provider');
 
-        if (!$providerName) {
+        if (! $providerName) {
             throw new \RuntimeException(
                 'AI provider not configured. Set PALADIN_AI_PROVIDER in your .env file.'
             );
@@ -77,8 +77,8 @@ class AgentFactory
             'openrouter' => Lab::OpenRouter,
             'xai' => Lab::xAI,
             default => throw new \InvalidArgumentException(
-                "Unsupported AI provider: {$provider}. " .
-                "Supported providers: anthropic, azure, cohere, deepseek, gemini, groq, mistral, ollama, openai, openrouter, xai"
+                "Unsupported AI provider: {$provider}. ".
+                'Supported providers: anthropic, azure, cohere, deepseek, gemini, groq, mistral, ollama, openai, openrouter, xai'
             ),
         };
     }
@@ -89,22 +89,22 @@ class AgentFactory
     protected function validateCredentials(string $provider): void
     {
         $requirements = [
-            'anthropic' => ['ANTHROPIC_API_KEY'],
-            'azure' => ['AZURE_OPENAI_API_KEY', 'AZURE_OPENAI_ENDPOINT'],
-            'cohere' => ['COHERE_API_KEY'],
-            'deepseek' => ['DEEPSEEK_API_KEY'],
-            'gemini' => ['GEMINI_API_KEY'],
-            'groq' => ['GROQ_API_KEY'],
-            'mistral' => ['MISTRAL_API_KEY'],
-            'ollama' => [], // Optional: OLLAMA_BASE_URL
-            'openai' => ['OPENAI_API_KEY'],
-            'openrouter' => ['OPENROUTER_API_KEY'],
-            'xai' => ['XAI_API_KEY'],
+            'anthropic' => ['anthropic_api_key'],
+            'azure' => ['azure_openai_api_key', 'azure_openai_endpoint'],
+            'cohere' => ['cohere_api_key'],
+            'deepseek' => ['deepseek_api_key'],
+            'gemini' => ['gemini_api_key'],
+            'groq' => ['groq_api_key'],
+            'mistral' => ['mistral_api_key'],
+            'ollama' => [], // Optional: ollama_base_url
+            'openai' => ['openai_api_key'],
+            'openrouter' => ['openrouter_api_key'],
+            'xai' => ['xai_api_key'],
         ];
 
         $providerLower = strtolower($provider);
 
-        if (!isset($requirements[$providerLower])) {
+        if (! isset($requirements[$providerLower])) {
             // This shouldn't happen if getProviderEnum is called first, but just in case
             throw new \InvalidArgumentException(
                 "Unknown provider: {$provider}"
@@ -113,17 +113,20 @@ class AgentFactory
 
         $missing = [];
 
-        foreach ($requirements[$providerLower] as $envVar) {
-            if (!env($envVar)) {
+        foreach ($requirements[$providerLower] as $configKey) {
+            $value = config("paladin.ai.credentials.{$configKey}");
+            if (empty($value)) {
+                // Convert config key to env var name for error message
+                $envVar = strtoupper($configKey);
                 $missing[] = $envVar;
             }
         }
 
-        if (!empty($missing)) {
+        if (! empty($missing)) {
             $vars = implode(', ', $missing);
             throw new \RuntimeException(
-                "Provider '{$provider}' requires the following environment variable" .
-                (count($missing) > 1 ? 's' : '') . " to be set in your .env file: {$vars}"
+                "Provider '{$provider}' requires the following environment variable".
+                (count($missing) > 1 ? 's' : '')." to be set in your .env file: {$vars}"
             );
         }
     }

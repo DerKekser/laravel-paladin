@@ -1,0 +1,23 @@
+Fix the following issue in the codebase:
+
+**Issue Type**: runtime_error
+**Severity**: high
+**Title**: Division by zero in UserController
+
+**Description**:
+Division by zero error occurring in user statistics calculation. The calculate() method is being called with a zero divisor.
+
+**Affected Files**:
+- app/Http/Controllers/UserController.php
+
+**Stack Trace**:
+```
+#0 /var/www/app/Http/Controllers/UserController.php(42): calculate()
+#1 /var/www/app/Http/Controllers/UserController.php(25): App\Http\Controllers\UserController->getStatistics()
+#2 [internal function]: App\Http\Controllers\UserController->index()
+```
+
+**Suggested Fix**:
+Add validation to check that the divisor is not zero before performing the division operation. Consider adding a guard clause at the beginning of the calculate() method.
+
+Please analyze the code, identify the root cause, and implement a fix that resolves this issue while maintaining code quality and following Laravel best practices.

@@ -1,0 +1,16 @@
+[2026-03-15 11:30:00] production.ERROR: Undefined array key "user_id" {"exception":"[object] (ErrorException(code: 0): Undefined array key \"user_id\" at /var/www/app/Models/Order.php:89)
+[stacktrace]
+#0 /var/www/app/Models/Order.php(89): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->handleError()
+#1 /var/www/app/Http/Controllers/OrderController.php(45): App\\Models\\Order->create()
+#2 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Controller.php(54): App\\Http\\Controllers\\OrderController->store()
+#3 /var/www/vendor/laravel/framework/src/Illuminate/Routing/ControllerDispatcher.php(48): Illuminate\\Routing\\Controller->callAction()
+#4 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Route.php(262): Illuminate\\Routing\\ControllerDispatcher->dispatch()
+#5 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Route.php(205): Illuminate\\Routing\\Route->runController()
+#6 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Router.php(806): Illuminate\\Routing\\Route->run()
+"}
+[2026-03-15 11:35:22] production.ERROR: Connection timeout {"exception":"[object] (Illuminate\\Database\\QueryException(code: 2002): SQLSTATE[HY000] [2002] Connection timed out at /var/www/vendor/laravel/framework/src/Illuminate/Database/Connection.php:825)
+[stacktrace]
+#0 /var/www/vendor/laravel/framework/src/Illuminate/Database/Connection.php(825): PDO->__construct()
+#1 /var/www/vendor/laravel/framework/src/Illuminate/Database/Connectors/Connector.php(65): Illuminate\\Database\\Connection->connect()
+#2 /var/www/vendor/laravel/framework/src/Illuminate/Database/Connectors/MySqlConnector.php(24): Illuminate\\Database\\Connectors\\Connector->createConnection()
+"}

@@ -34,6 +34,11 @@ class AiProviderRetryHandler
     private const TIMEOUT_BASE_DELAY = 2;
 
     /**
+     * Sleep multiplier for testing (0 = no sleep, 1 = normal sleep)
+     */
+    protected float $sleepMultiplier = 1.0;
+
+    /**
      * Execute a callable with retry logic for AI provider errors
      *
      * @param  callable  $callable  The function to execute
@@ -91,8 +96,8 @@ class AiProviderRetryHandler
                 // Calculate delay with exponential backoff and jitter
                 $delay = $this->calculateDelay($attempt, $retryConfig);
 
-                // Check if we've exceeded max total wait time
-                if ($totalWaitTime + $delay > self::MAX_TOTAL_WAIT_SECONDS) {
+                // Check if we've exceeded max total wait time (only if actually sleeping)
+                if ($this->sleepMultiplier > 0 && $totalWaitTime + $delay > self::MAX_TOTAL_WAIT_SECONDS) {
                     Log::error('[Paladin][AI] Max total wait time exceeded', array_merge($context, [
                         'attempts' => $attempt,
                         'total_wait_seconds' => round($totalWaitTime, 2),
@@ -110,8 +115,11 @@ class AiProviderRetryHandler
                 ]));
 
                 // Wait before retrying
-                usleep((int) ($delay * 1_000_000));
-                $totalWaitTime += $delay;
+                $this->sleep($delay);
+                // Only track actual wait time
+                if ($this->sleepMultiplier > 0) {
+                    $totalWaitTime += $delay * $this->sleepMultiplier;
+                }
             }
         }
     }
@@ -278,5 +286,25 @@ class AiProviderRetryHandler
         }
 
         return 'AI provider error - retrying';
+    }
+
+    /**
+     * Sleep for the specified delay (can be overridden in tests).
+     */
+    protected function sleep(float $delay): void
+    {
+        if ($this->sleepMultiplier > 0) {
+            usleep((int) ($delay * $this->sleepMultiplier * 1_000_000));
+        }
+    }
+
+    /**
+     * Set the sleep multiplier (for testing).
+     */
+    public function setSleepMultiplier(float $multiplier): self
+    {
+        $this->sleepMultiplier = $multiplier;
+
+        return $this;
     }
 }

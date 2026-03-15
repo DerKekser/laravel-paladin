@@ -1,0 +1,17 @@
+[2026-03-15 10:23:45] production.ERROR: Division by zero {"exception":"[object] (DivisionByZeroError(code: 0): Division by zero at /var/www/app/Http/Controllers/UserController.php:42)
+[stacktrace]
+#0 /var/www/app/Http/Controllers/UserController.php(42): calculate()
+#1 /var/www/app/Http/Controllers/UserController.php(25): App\\Http\\Controllers\\UserController->getStatistics()
+#2 [internal function]: App\\Http\\Controllers\\UserController->index()
+"}
+[2026-03-15 10:25:12] production.ERROR: Class 'App\Services\PaymentService' not found {"exception":"[object] (Error(code: 0): Class 'App\\Services\\PaymentService' not found at /var/www/app/Http/Controllers/PaymentController.php:15)
+[stacktrace]
+#0 /var/www/app/Http/Controllers/PaymentController.php(15): App\\Http\\Controllers\\PaymentController->__construct()
+#1 [internal function]: App\\Http\\Controllers\\PaymentController->process()
+"}
+[2026-03-15 10:30:00] production.CRITICAL: Undefined array key "user_id" {"exception":"[object] (ErrorException(code: 0): Undefined array key \"user_id\" at /var/www/app/Models/Order.php:89)
+[stacktrace]
+#0 /var/www/app/Models/Order.php(89): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->handleError()
+#1 /var/www/app/Http/Controllers/OrderController.php(45): App\\Models\\Order->create()
+#2 /var/www/vendor/laravel/framework/src/Illuminate/Routing/Controller.php(54): App\\Http\\Controllers\\OrderController->store()
+"}
