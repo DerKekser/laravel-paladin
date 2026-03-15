@@ -257,7 +257,7 @@ class ProcessSelfHealingJob implements ShouldQueue
                     ->first();
                 $testFailureOutput = $previousAttempt?->test_output;
             }
-            
+
             $factory = app(AgentFactory::class);
             $promptGenerator = $factory->createPromptGenerator($issue, $testFailureOutput);
             $prompt = $promptGenerator->generate();
