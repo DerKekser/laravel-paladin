@@ -33,7 +33,7 @@ class HealingAttempt extends Model
         $this->update(['status' => 'in_progress']);
     }
 
-    public function markAsFixed(string $prUrl = null): void
+    public function markAsFixed(?string $prUrl = null): void
     {
         $this->update([
             'status' => 'fixed',
@@ -41,7 +41,7 @@ class HealingAttempt extends Model
         ]);
     }
 
-    public function markAsFailed(string $errorMessage = null): void
+    public function markAsFailed(?string $errorMessage = null): void
     {
         $this->update([
             'status' => 'failed',

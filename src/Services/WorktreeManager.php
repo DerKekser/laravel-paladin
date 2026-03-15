@@ -8,6 +8,7 @@ use RuntimeException;
 class WorktreeManager
 {
     protected string $basePath;
+
     protected string $namingPattern;
 
     public function __construct()
@@ -19,23 +20,28 @@ class WorktreeManager
     /**
      * Create a new git worktree for isolating fix attempts.
      */
-    public function create(string $issueId, string $branch = null): array
+    public function create(string $issueId, ?string $branch = null): array
     {
         // Generate worktree name
         $worktreeName = $this->generateWorktreeName($issueId);
         $worktreePath = $this->getFullPath($worktreeName);
 
         // Ensure base directory exists
-        if (!File::exists(dirname($worktreePath))) {
+        if (! File::exists(dirname($worktreePath))) {
             File::makeDirectory(dirname($worktreePath), 0755, true);
         }
 
         // Get the default branch to base the worktree on
         $defaultBranch = $branch ?? config('paladin.git.default_branch', 'main');
 
-        // Create the worktree
+        // Generate a unique temporary branch name for the worktree
+        // This avoids the "branch already in use" error when the default branch is checked out
+        $tempBranchName = 'paladin-temp-'.substr($issueId, 0, 8).'-'.time();
+
+        // Create the worktree with a new branch based on the default branch
         $command = sprintf(
-            'git worktree add %s %s 2>&1',
+            'git worktree add -b %s %s %s 2>&1',
+            escapeshellarg($tempBranchName),
             escapeshellarg($worktreePath),
             escapeshellarg($defaultBranch)
         );
@@ -44,7 +50,7 @@ class WorktreeManager
 
         if ($returnCode !== 0) {
             throw new RuntimeException(
-                "Failed to create git worktree: " . implode("\n", $output)
+                'Failed to create git worktree: '.implode("\n", $output)
             );
         }
 
@@ -59,7 +65,7 @@ class WorktreeManager
      */
     public function remove(string $worktreePath): bool
     {
-        if (!File::exists($worktreePath)) {
+        if (! File::exists($worktreePath)) {
             return true;
         }
 
@@ -76,7 +82,7 @@ class WorktreeManager
             File::deleteDirectory($worktreePath);
         }
 
-        return !File::exists($worktreePath);
+        return ! File::exists($worktreePath);
     }
 
     /**
@@ -86,7 +92,7 @@ class WorktreeManager
     {
         $basePath = $this->getBasePath();
 
-        if (!File::exists($basePath)) {
+        if (! File::exists($basePath)) {
             return 0;
         }
 
@@ -137,7 +143,7 @@ class WorktreeManager
     {
         $basePath = $this->getBasePath();
 
-        return $basePath . '/' . $worktreeName;
+        return $basePath.'/'.$worktreeName;
     }
 
     /**
@@ -148,7 +154,7 @@ class WorktreeManager
         $basePath = $this->basePath;
 
         // Handle relative paths
-        if (!$this->isAbsolutePath($basePath)) {
+        if (! $this->isAbsolutePath($basePath)) {
             $basePath = base_path($basePath);
         }
 
@@ -163,7 +169,7 @@ class WorktreeManager
         if (strlen($path) === 0) {
             return false;
         }
-        
+
         return $path[0] === '/' || (strlen($path) > 2 && $path[1] === ':');
     }
 

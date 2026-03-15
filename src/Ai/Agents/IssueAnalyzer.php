@@ -64,17 +64,17 @@ INSTRUCTIONS;
     public function schema(JsonSchema $schema): array
     {
         return [
-            'issues' => $schema->array()->items([
+            'issues' => $schema->array()->items($schema->object([
                 'id' => $schema->string()->description('Unique identifier for this issue (hash of exception type + file + line)')->required(),
                 'type' => $schema->string()->description('Error type (e.g., ErrorException, QueryException, etc.)')->required(),
-                'severity' => $schema->enum(['critical', 'high', 'medium', 'low'])->required(),
+                'severity' => $schema->string()->enum(['critical', 'high', 'medium', 'low'])->required(),
                 'title' => $schema->string()->description('Short, descriptive title for the issue')->required(),
                 'message' => $schema->string()->description('Full error message')->required(),
                 'stack_trace' => $schema->string()->description('Stack trace from the error log'),
                 'affected_files' => $schema->array()->items($schema->string())->description('List of files mentioned in the stack trace'),
                 'suggested_fix' => $schema->string()->description('Brief suggestion on how to fix this issue')->required(),
                 'log_level' => $schema->string()->description('Original log level (error, critical, etc.)')->required(),
-            ])->required(),
+            ]))->required(),
         ];
     }
 
