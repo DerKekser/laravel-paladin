@@ -1,0 +1,62 @@
+{
+    "name": "kekser/laravel-paladin",
+    "description": "Autonomous self-healing for Laravel applications using AI",
+    "keywords": [
+        "laravel",
+        "ai",
+        "self-healing",
+        "automation",
+        "debugging",
+        "paladin"
+    ],
+    "homepage": "https://github.com/kekser/laravel-paladin",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Kekser",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/contracts": "^11.0|^12.0",
+        "illuminate/support": "^11.0|^12.0",
+        "illuminate/console": "^11.0|^12.0",
+        "illuminate/database": "^11.0|^12.0",
+        "illuminate/queue": "^11.0|^12.0",
+        "laravel/ai": "^0.3",
+        "guzzlehttp/guzzle": "^7.0",
+        "spatie/laravel-package-tools": "^1.16"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^10.0|^9.0",
+        "phpunit/phpunit": "^11.0",
+        "laravel/pint": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Kekser\\LaravelPaladin\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Kekser\\LaravelPaladin\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit",
+        "format": "vendor/bin/pint"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Kekser\\LaravelPaladin\\LaravelPaladinServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
