@@ -2,7 +2,9 @@
 
 namespace Kekser\LaravelPaladin;
 
+use Kekser\LaravelPaladin\Commands\CleanupCommand;
 use Kekser\LaravelPaladin\Commands\HealCommand;
+use Kekser\LaravelPaladin\Commands\StatusCommand;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -20,6 +22,8 @@ class LaravelPaladinServiceProvider extends PackageServiceProvider
             ->hasConfigFile()
             ->hasViews()
             ->hasMigration('create_healing_attempts_table')
-            ->hasCommand(HealCommand::class);
+            ->hasCommand(HealCommand::class)
+            ->hasCommand(StatusCommand::class)
+            ->hasCommand(CleanupCommand::class);
     }
 }

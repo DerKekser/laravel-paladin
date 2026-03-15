@@ -103,7 +103,7 @@ class WorktreeManager
         $directories = File::directories($basePath);
 
         foreach ($directories as $dir) {
-            if (strpos(basename($dir), 'paladin-fix-') === 0) {
+            if (str_starts_with(basename($dir), 'paladin-fix-')) {
                 $modifiedTime = File::lastModified($dir);
 
                 if ($modifiedTime < $cutoffTime) {
@@ -149,7 +149,7 @@ class WorktreeManager
     /**
      * Get the absolute base path for worktrees.
      */
-    protected function getBasePath(): string
+    public function getBasePath(): string
     {
         $basePath = $this->basePath;
 
