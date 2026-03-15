@@ -54,6 +54,14 @@ class HealingAttempt extends Model
         ]);
     }
 
+    public function markAsSkipped(string $reason): void
+    {
+        $this->update([
+            'status' => 'skipped',
+            'error_message' => $reason,
+        ]);
+    }
+
     public function scopePending($query)
     {
         return $query->where('status', 'pending');
@@ -72,6 +80,11 @@ class HealingAttempt extends Model
     public function scopeFailed($query)
     {
         return $query->where('status', 'failed');
+    }
+
+    public function scopeSkipped($query)
+    {
+        return $query->where('status', 'skipped');
     }
 
     public function scopeByIssueId($query, string $issueId)

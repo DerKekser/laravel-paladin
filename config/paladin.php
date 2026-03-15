@@ -56,6 +56,57 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | File Boundary Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure which files/directories are considered part of the project
+    | and therefore fixable by Paladin. Issues originating exclusively from
+    | external paths (vendor, node_modules, etc.) will be logged but skipped.
+    |
+    | The system respects .gitignore patterns automatically, plus additional
+    | excluded paths configured here.
+    |
+    | PRECEDENCE ORDER:
+    | 1. allowed_paths - If a file matches these paths, it's ALWAYS allowed
+    |    (exception/override list that bypasses all exclusions)
+    | 2. excluded_paths - Files matching these paths are excluded
+    | 3. .gitignore patterns - Files matching .gitignore are excluded
+    |
+    | Use allowed_paths to create exceptions for normally-excluded paths.
+    | For example, if you have custom code in 'app/vendor/' that you want
+    | to fix even though 'vendor/' is excluded, add 'app/vendor/' to
+    | allowed_paths.
+    |
+    | Example scenario:
+    |   excluded_paths: ['vendor/']
+    |   allowed_paths: ['app/vendor/']
+    |
+    |   Result:
+    |   - vendor/laravel/framework/File.php → excluded
+    |   - app/vendor/CustomLib.php → allowed (exception)
+    |   - app/Http/Controllers/TestController.php → allowed (not excluded)
+    |
+    */
+
+    'file_boundaries' => [
+        // Paths that are ALWAYS excluded (in addition to .gitignore patterns)
+        // Errors originating only from these paths will be skipped
+        // NOTE: These can be overridden by allowed_paths
+        'excluded_paths' => [
+            'vendor/',
+            'node_modules/',
+        ],
+
+        // Exception list - paths that should be allowed even if they match
+        // excluded_paths or .gitignore patterns. Use this to create exceptions
+        // for specific directories that would normally be excluded.
+        // Leave empty [] if you don't need exceptions (recommended)
+        // Example: ['app/vendor/', 'custom-packages/']
+        'allowed_paths' => [],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Worktree Configuration
     |--------------------------------------------------------------------------
     |

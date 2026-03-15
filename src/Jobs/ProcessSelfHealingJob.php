@@ -10,6 +10,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Kekser\LaravelPaladin\Ai\AgentFactory;
 use Kekser\LaravelPaladin\Models\HealingAttempt;
+use Kekser\LaravelPaladin\Services\FileBoundaryValidator;
 use Kekser\LaravelPaladin\Services\LogScanner;
 use Kekser\LaravelPaladin\Services\OpenCodeInstaller;
 use Kekser\LaravelPaladin\Services\OpenCodeRunner;
@@ -175,6 +176,46 @@ class ProcessSelfHealingJob implements ShouldQueue
             'type' => $issue['type'],
             'severity' => $issue['severity'],
         ]);
+
+        // Validate file boundaries BEFORE attempting fix
+        $validator = new FileBoundaryValidator;
+        $validation = $validator->analyzeIssue($issue['affected_files'] ?? []);
+
+        if (! $validation['is_fixable']) {
+            // Create healing attempt record with 'skipped' status
+            $healingAttempt = HealingAttempt::create([
+                'issue_id' => $issue['id'],
+                'issue_type' => $issue['type'],
+                'severity' => $issue['severity'],
+                'message' => $issue['message'],
+                'stack_trace' => $issue['stack_trace'] ?? null,
+                'affected_files' => $issue['affected_files'] ?? [],
+                'attempt_number' => 1,
+                'status' => 'skipped',
+                'error_message' => $validation['reason'],
+            ]);
+
+            Log::warning('[Paladin] Issue skipped - root cause outside project', [
+                'issue_id' => $issue['id'],
+                'issue_type' => $issue['type'],
+                'severity' => $issue['severity'],
+                'reason' => $validation['reason'],
+                'external_files' => $validation['external_files'],
+                'affected_files_count' => count($issue['affected_files'] ?? []),
+            ]);
+
+            return; // Exit early - don't attempt fix
+        }
+
+        // Log that we're proceeding with fixable issue
+        if (! empty($validation['external_files'])) {
+            Log::info('[Paladin] Issue is fixable - proceeding with fix', [
+                'issue_id' => $issue['id'],
+                'internal_files_count' => count($validation['internal_files']),
+                'external_files_count' => count($validation['external_files']),
+                'internal_files' => $validation['internal_files'],
+            ]);
+        }
 
         $maxAttempts = config('paladin.testing.max_fix_attempts', 3);
 

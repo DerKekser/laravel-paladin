@@ -4,25 +4,31 @@ namespace Kekser\LaravelPaladin\Services;
 
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 
 class LogScanner
 {
     protected string $storagePath;
+
     protected array $channels;
+
     protected array $levels;
+
     protected array $ignorePatterns;
+
+    protected FileBoundaryValidator $boundaryValidator;
 
     public function __construct()
     {
         $this->storagePath = config('paladin.log.storage_path');
-        
+
         // Handle both string and array channel configuration
         $channels = config('paladin.log.channels');
         $this->channels = is_array($channels) ? $channels : explode(',', $channels);
-        
+
         $this->levels = config('paladin.log.levels');
         $this->ignorePatterns = config('paladin.issues.ignore_patterns', []);
+        $this->boundaryValidator = new FileBoundaryValidator;
     }
 
     /**
@@ -37,7 +43,7 @@ class LogScanner
             $channel = trim($channel);
             $logFile = $this->getLogFilePath($channel);
 
-            if (!File::exists($logFile)) {
+            if (! File::exists($logFile)) {
                 continue;
             }
 
@@ -58,10 +64,10 @@ class LogScanner
         // The 'stack' channel is a meta-channel that combines others,
         // so we default to laravel.log for it
         if ($channel === 'stack') {
-            return $this->storagePath . '/laravel.log';
+            return $this->storagePath.'/laravel.log';
         }
-        
-        return $this->storagePath . '/' . $channel . '.log';
+
+        return $this->storagePath.'/'.$channel.'.log';
     }
 
     /**
@@ -103,8 +109,8 @@ class LogScanner
                 }
             } elseif ($currentEntry) {
                 // Continuation of current entry (stack trace, etc.)
-                $currentEntry['stack_trace'] .= $line . "\n";
-                $currentEntry['raw'] .= "\n" . $line;
+                $currentEntry['stack_trace'] .= $line."\n";
+                $currentEntry['raw'] .= "\n".$line;
             }
         }
 
@@ -132,15 +138,37 @@ class LogScanner
 
     /**
      * Filter and deduplicate log entries.
+     * Also performs early boundary validation to skip entries from external files.
      */
     protected function filterAndDeduplicate(array $entries): array
     {
         $unique = [];
 
         foreach ($entries as $entry) {
+            // Early detection: Extract files from stack trace before AI processing
+            $stackTrace = $entry['stack_trace'] ?? '';
+            if (! empty($stackTrace)) {
+                $affectedFiles = $this->boundaryValidator->extractFilesFromStackTrace($stackTrace);
+
+                // Skip if all affected files are external
+                if (! empty($affectedFiles)) {
+                    $validation = $this->boundaryValidator->analyzeIssue($affectedFiles);
+
+                    if (! $validation['is_fixable']) {
+                        // Log that we're skipping this entry before AI processing
+                        Log::debug('[Paladin] Skipping log entry - all files external', [
+                            'message' => substr($entry['message'], 0, 100),
+                            'external_files' => $validation['external_files'],
+                        ]);
+
+                        continue; // Skip this entry entirely
+                    }
+                }
+            }
+
             $hash = $this->generateEntryHash($entry);
 
-            if (!isset($unique[$hash])) {
+            if (! isset($unique[$hash])) {
                 $entry['hash'] = $hash;
                 $unique[$hash] = $entry;
             }
@@ -162,10 +190,11 @@ class LogScanner
         if (preg_match('/in (.+):(\d+)/', $stackTrace, $matches)) {
             $file = basename($matches[1]);
             $line = $matches[2];
-            return md5($entry['level'] . $message . $file . $line);
+
+            return md5($entry['level'].$message.$file.$line);
         }
 
-        return md5($entry['level'] . $message);
+        return md5($entry['level'].$message);
     }
 
     /**

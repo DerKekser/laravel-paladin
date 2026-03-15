@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string('worktree_path')->nullable();
             $table->string('branch_name')->nullable();
             $table->integer('attempt_number')->default(1);
-            $table->string('status')->default('pending'); // pending, in_progress, fixed, failed
+            $table->string('status')->default('pending'); // pending, in_progress, fixed, failed, skipped
             $table->text('opencode_prompt')->nullable();
             $table->text('opencode_output')->nullable();
             $table->text('test_output')->nullable();
