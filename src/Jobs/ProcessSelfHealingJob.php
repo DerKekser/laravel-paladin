@@ -16,6 +16,7 @@ use Kekser\LaravelPaladin\Services\OpenCodeRunner;
 use Kekser\LaravelPaladin\Services\PullRequestManager;
 use Kekser\LaravelPaladin\Services\TestRunner;
 use Kekser\LaravelPaladin\Services\WorktreeManager;
+use Kekser\LaravelPaladin\Services\WorktreeSetup;
 
 class ProcessSelfHealingJob implements ShouldQueue
 {
@@ -57,6 +58,7 @@ class ProcessSelfHealingJob implements ShouldQueue
 
             if (empty($logEntries)) {
                 Log::info('[Paladin] No new log entries found');
+
                 return;
             }
 
@@ -65,6 +67,7 @@ class ProcessSelfHealingJob implements ShouldQueue
 
             if (empty($issues)) {
                 Log::info('[Paladin] No actionable issues found');
+
                 return;
             }
 
@@ -87,9 +90,9 @@ class ProcessSelfHealingJob implements ShouldQueue
      */
     protected function ensureOpenCodeInstalled(): void
     {
-        $installer = new OpenCodeInstaller();
+        $installer = new OpenCodeInstaller;
 
-        if (!$installer->isInstalled()) {
+        if (! $installer->isInstalled()) {
             Log::info('[Paladin] OpenCode not installed, attempting installation');
             $installer->ensureInstalled();
         } else {
@@ -105,7 +108,7 @@ class ProcessSelfHealingJob implements ShouldQueue
     {
         Log::info('[Paladin] Scanning logs for new entries');
 
-        $scanner = new LogScanner();
+        $scanner = new LogScanner;
         $entries = $scanner->scan();
 
         Log::info('[Paladin] Found log entries', ['count' => count($entries)]);
@@ -129,6 +132,7 @@ class ProcessSelfHealingJob implements ShouldQueue
         usort($issues, function ($a, $b) use ($severityOrder) {
             $aSeverity = $severityOrder[$a['severity']] ?? 999;
             $bSeverity = $severityOrder[$b['severity']] ?? 999;
+
             return $aSeverity <=> $bSeverity;
         });
 
@@ -183,6 +187,7 @@ class ProcessSelfHealingJob implements ShouldQueue
                         'issue_id' => $issue['id'],
                         'attempt' => $attempt,
                     ]);
+
                     return;
                 }
 
@@ -240,13 +245,30 @@ class ProcessSelfHealingJob implements ShouldQueue
     ): bool {
         $healingAttempt->markAsInProgress();
 
-        $worktreeManager = new WorktreeManager();
+        $worktreeManager = new WorktreeManager;
         $worktree = null;
 
         try {
             // Create worktree
             $worktree = $worktreeManager->create($issue['id']);
             $healingAttempt->update(['worktree_path' => $worktree['path']]);
+
+            // Setup worktree (composer install, env file, etc.)
+            if (config('paladin.worktree.setup.enabled', true)) {
+                $worktreeSetup = new WorktreeSetup;
+                $setupSuccess = $worktreeSetup->setup($worktree['path']);
+
+                if (! $setupSuccess) {
+                    $healingAttempt->markAsFailed('Worktree setup failed');
+
+                    // Cleanup failed worktree
+                    if ($worktreeManager->exists($worktree['path'])) {
+                        $worktreeManager->remove($worktree['path']);
+                    }
+
+                    return false;
+                }
+            }
 
             // Generate prompt for OpenCode
             // For retry attempts, fetch the previous attempt's test output
@@ -265,24 +287,26 @@ class ProcessSelfHealingJob implements ShouldQueue
             $healingAttempt->update(['opencode_prompt' => $prompt]);
 
             // Run OpenCode
-            $opencodeRunner = new OpenCodeRunner();
+            $opencodeRunner = new OpenCodeRunner;
             $opencodeResult = $opencodeRunner->run($prompt, $worktree['path']);
 
             $healingAttempt->update(['opencode_output' => $opencodeResult['output']]);
 
-            if (!$opencodeResult['success']) {
+            if (! $opencodeResult['success']) {
                 $healingAttempt->markAsFailed('OpenCode execution failed');
+
                 return false;
             }
 
             // Run tests
-            $testRunner = new TestRunner();
+            $testRunner = new TestRunner;
             $testResult = $testRunner->run($worktree['path']);
 
             $healingAttempt->update(['test_output' => $testResult['output']]);
 
-            if (!$testResult['passed']) {
+            if (! $testResult['passed']) {
                 $healingAttempt->markAsFailed('Tests failed after fix');
+
                 return false;
             }
 
@@ -321,7 +345,7 @@ class ProcessSelfHealingJob implements ShouldQueue
     ): bool {
         // Create branch name
         $branchPrefix = config('paladin.git.branch_prefix', 'paladin/fix');
-        $branchName = "{$branchPrefix}-" . substr($issue['id'], 0, 8);
+        $branchName = "{$branchPrefix}-".substr($issue['id'], 0, 8);
 
         // Create and checkout branch - properly escape all arguments
         $commands = [
@@ -334,6 +358,7 @@ class ProcessSelfHealingJob implements ShouldQueue
 
         if ($returnCode !== 0) {
             Log::error('[Paladin] Failed to create branch', ['output' => implode("\n", $output)]);
+
             return false;
         }
 
@@ -342,7 +367,7 @@ class ProcessSelfHealingJob implements ShouldQueue
 
         // Commit
         $commitCommand = sprintf(
-            "cd %s && git commit -m %s",
+            'cd %s && git commit -m %s',
             escapeshellarg($worktreePath),
             escapeshellarg($commitMessage)
         );
@@ -351,6 +376,7 @@ class ProcessSelfHealingJob implements ShouldQueue
 
         if ($returnCode !== 0) {
             Log::error('[Paladin] Failed to commit changes', ['output' => implode("\n", $output)]);
+
             return false;
         }
 
@@ -364,13 +390,14 @@ class ProcessSelfHealingJob implements ShouldQueue
 
         if ($returnCode !== 0) {
             Log::error('[Paladin] Failed to push branch', ['output' => implode("\n", $output)]);
+
             return false;
         }
 
         $healingAttempt->update(['branch_name' => $branchName]);
 
         // Create PR
-        $prManager = new PullRequestManager();
+        $prManager = new PullRequestManager;
         $prTitle = $this->generatePRTitle($issue);
         $prBody = $this->generatePRBody($issue, $attemptNumber, $maxAttempts);
 
@@ -378,10 +405,12 @@ class ProcessSelfHealingJob implements ShouldQueue
 
         if ($prUrl) {
             $healingAttempt->markAsFixed($prUrl);
+
             return true;
         }
 
         $healingAttempt->markAsFailed('Failed to create pull request');
+
         return false;
     }
 

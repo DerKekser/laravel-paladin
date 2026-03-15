@@ -69,6 +69,48 @@ return [
         'naming_pattern' => 'paladin-fix-{issue_id}-{timestamp}',
         'cleanup_after_success' => true,
         'cleanup_after_days' => 7,
+
+        /*
+        |----------------------------------------------------------------------
+        | Worktree Setup Configuration
+        |----------------------------------------------------------------------
+        |
+        | Configure how Paladin sets up worktrees before running fixes.
+        | This ensures the worktree has all dependencies and configuration
+        | needed for tests to run successfully.
+        |
+        */
+
+        'setup' => [
+            // Enable/disable worktree setup
+            'enabled' => env('PALADIN_WORKTREE_SETUP_ENABLED', true),
+
+            // Run composer install in the worktree
+            'composer_install' => true,
+
+            // Flags to pass to composer install
+            // --no-dev: Skip development dependencies (faster, smaller)
+            // --prefer-dist: Use distribution packages (faster)
+            // --no-interaction: Don't ask any interactive questions
+            'composer_flags' => '--no-interaction --prefer-dist --no-dev',
+
+            // Copy environment file to worktree
+            'copy_env' => true,
+
+            // Which env file to copy (falls back to .env if not found)
+            'env_source' => '.env.testing',
+
+            // Generate APP_KEY if missing in the copied .env file
+            'generate_key' => true,
+
+            // Custom commands to run after setup (e.g., cache clearing, migrations)
+            // Commands are executed in the worktree directory
+            'custom_commands' => [
+                // Example: 'php artisan config:clear',
+                // Example: 'php artisan cache:clear',
+                // Example: 'php artisan migrate --force',
+            ],
+        ],
     ],
 
     /*
