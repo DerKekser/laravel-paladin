@@ -3,10 +3,11 @@
 namespace Kekser\LaravelPaladin\Ai\Agents;
 
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Kekser\LaravelPaladin\Ai\AiProviderRetryHandler;
+use Laravel\Ai\Attributes\Model;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasStructuredOutput;
 use Laravel\Ai\Enums\Lab;
-use Laravel\Ai\Attributes\Model;
 use Laravel\Ai\Promptable;
 use Stringable;
 
@@ -15,7 +16,8 @@ class IssueAnalyzer implements Agent, HasStructuredOutput
     use Promptable;
 
     protected array $logEntries = [];
-    protected Lab $provider;
+
+    protected ?Lab $provider = null;
 
     /**
      * Set the AI provider to use for this agent.
@@ -99,7 +101,16 @@ INSTRUCTIONS;
         $prompt = "Analyze the following Laravel log entries and extract structured issue information:\n\n";
         $prompt .= implode("\n\n---\n\n", $formattedEntries);
 
-        $response = $this->prompt($prompt);
+        $response = app(AiProviderRetryHandler::class)->executeWithRetry(
+            callable: fn () => $this->prompt($prompt),
+            context: [
+                'agent' => 'IssueAnalyzer',
+                'operation' => 'analyze_logs',
+                'log_entries_count' => count($logEntries),
+                'provider' => $this->provider->value ?? 'unknown',
+                'model' => $this->getModel(),
+            ]
+        );
 
         return $response['issues'] ?? [];
     }

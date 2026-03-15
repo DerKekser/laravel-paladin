@@ -2,6 +2,7 @@
 
 namespace Kekser\LaravelPaladin\Ai\Agents;
 
+use Kekser\LaravelPaladin\Ai\AiProviderRetryHandler;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Promptable;
@@ -11,13 +12,12 @@ class PromptGenerator implements Agent
 {
     use Promptable;
 
-    protected Lab $provider;
+    protected ?Lab $provider = null;
 
     public function __construct(
         protected array $issue,
         protected ?string $testFailureOutput = null
-    ) {
-    }
+    ) {}
 
     /**
      * Set the AI provider to use for this agent.
@@ -65,10 +65,21 @@ INSTRUCTIONS;
         $basePrompt = $this->buildBasePrompt();
 
         if ($this->testFailureOutput) {
-            $basePrompt .= "\n\n" . $this->buildTestFailureContext();
+            $basePrompt .= "\n\n".$this->buildTestFailureContext();
         }
 
-        $response = $this->prompt($basePrompt);
+        $response = app(AiProviderRetryHandler::class)->executeWithRetry(
+            callable: fn () => $this->prompt($basePrompt),
+            context: [
+                'agent' => 'PromptGenerator',
+                'operation' => 'generate_prompt',
+                'issue_id' => $this->issue['id'] ?? null,
+                'issue_type' => $this->issue['type'] ?? 'unknown',
+                'has_test_failure' => ! empty($this->testFailureOutput),
+                'provider' => $this->provider->value ?? 'unknown',
+                'model' => $this->getModel(),
+            ]
+        );
 
         return (string) $response;
     }
@@ -86,7 +97,7 @@ INSTRUCTIONS;
         $context .= "**Title**: {$issue['title']}\n\n";
         $context .= "**Error Message**:\n{$issue['message']}\n\n";
 
-        if (!empty($issue['affected_files'])) {
+        if (! empty($issue['affected_files'])) {
             $context .= "**Affected Files**:\n";
             foreach ($issue['affected_files'] as $file) {
                 $context .= "- {$file}\n";
@@ -94,11 +105,11 @@ INSTRUCTIONS;
             $context .= "\n";
         }
 
-        if (!empty($issue['suggested_fix'])) {
+        if (! empty($issue['suggested_fix'])) {
             $context .= "**Suggested Fix**: {$issue['suggested_fix']}\n\n";
         }
 
-        $context .= "Generate a clear, actionable prompt that OpenCode can use to fix this issue. The prompt should be specific and include all necessary context.";
+        $context .= 'Generate a clear, actionable prompt that OpenCode can use to fix this issue. The prompt should be specific and include all necessary context.';
 
         return $context;
     }
@@ -111,7 +122,7 @@ INSTRUCTIONS;
         $context = "**Previous Fix Attempt Failed**\n\n";
         $context .= "The previous fix attempt resulted in test failures. Here is the test output:\n\n";
         $context .= "```\n{$this->testFailureOutput}\n```\n\n";
-        $context .= "Update the prompt to address these test failures. The fix should not only resolve the original error but also ensure all tests pass.";
+        $context .= 'Update the prompt to address these test failures. The fix should not only resolve the original error but also ensure all tests pass.';
 
         return $context;
     }
