@@ -144,6 +144,7 @@ return [
         'timeout' => 300, // 5 minutes
         'max_fix_attempts' => env('PALADIN_MAX_FIX_ATTEMPTS', 3),
         'require_passing_tests' => true,
+        'skip_tests' => env('PALADIN_SKIP_TESTS', false),
     ],
 
     /*

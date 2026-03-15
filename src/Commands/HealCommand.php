@@ -34,7 +34,7 @@ class HealCommand extends Command
         $sync = $this->option('sync');
 
         // Validate configuration
-        if (!$this->validateConfiguration()) {
+        if (! $this->validateConfiguration()) {
             return self::FAILURE;
         }
 
@@ -44,34 +44,34 @@ class HealCommand extends Command
         if ($sync) {
             $this->warn('Running in synchronous mode - this may take a while...');
             $this->newLine();
-            
+
             try {
                 ProcessSelfHealingJob::dispatchSync();
-                
+
                 $this->newLine();
                 $this->info('✓ Self-healing process completed successfully!');
                 $this->info('Check the healing_attempts table for detailed results.');
-                
+
                 return self::SUCCESS;
             } catch (\Exception $e) {
                 $this->newLine();
-                $this->error('✗ Self-healing process failed: ' . $e->getMessage());
-                
+                $this->error('✗ Self-healing process failed: '.$e->getMessage());
+
                 if ($this->output->isVerbose()) {
                     $this->error($e->getTraceAsString());
                 }
-                
+
                 return self::FAILURE;
             }
         } else {
             ProcessSelfHealingJob::dispatch();
-            
+
             $this->info('✓ Self-healing job has been queued successfully!');
             $this->info('The healing process will run in the background.');
             $this->info('Check the healing_attempts table to monitor progress.');
             $this->newLine();
             $this->comment('Tip: Use --sync flag to run synchronously and see real-time output.');
-            
+
             return self::SUCCESS;
         }
     }
@@ -92,12 +92,12 @@ class HealCommand extends Command
         }
 
         // Check if git is available
-        if (!$this->isGitAvailable()) {
+        if (! $this->isGitAvailable()) {
             $errors[] = 'Git is not available on your system. Laravel Paladin requires git to be installed.';
         }
 
         // Check if we're in a git repository
-        if (!$this->isGitRepository()) {
+        if (! $this->isGitRepository()) {
             $errors[] = 'Not in a git repository. Laravel Paladin requires your project to be a git repository.';
         }
 
@@ -108,31 +108,38 @@ class HealCommand extends Command
 
         // Check if PR provider is configured properly
         $prProvider = config('paladin.pr_provider');
-        if ($prProvider === 'github' && !config('paladin.providers.github.token')) {
+        if ($prProvider === 'github' && ! config('paladin.providers.github.token')) {
             $errors[] = 'GitHub token not configured. Set PALADIN_GITHUB_TOKEN in your .env file.';
         }
 
-        if ($prProvider === 'azure-devops' && (!config('paladin.providers.azure-devops.organization') || !config('paladin.providers.azure-devops.token'))) {
+        if ($prProvider === 'azure-devops' && (! config('paladin.providers.azure-devops.organization') || ! config('paladin.providers.azure-devops.token'))) {
             $errors[] = 'Azure DevOps not fully configured. Set PALADIN_AZURE_DEVOPS_ORG and PALADIN_AZURE_DEVOPS_PAT in your .env file.';
         }
 
-        if ($prProvider === 'mail' && !config('paladin.providers.mail.to')) {
+        if ($prProvider === 'mail' && ! config('paladin.providers.mail.to')) {
             $errors[] = 'Mail recipient not configured. Set PALADIN_MAIL_TO in your .env file.';
         }
 
         // Display errors if any
-        if (!empty($errors)) {
+        if (! empty($errors)) {
             $this->error('Configuration errors detected:');
             $this->newLine();
-            
+
             foreach ($errors as $error) {
-                $this->error('  • ' . $error);
+                $this->error('  • '.$error);
             }
-            
+
             $this->newLine();
             $this->comment('Please fix these issues before running the heal command.');
-            
+
             return false;
+        }
+
+        // Warn if tests are being skipped
+        if (config('paladin.testing.skip_tests', false)) {
+            $this->warn('⚠️  WARNING: Test verification is disabled (PALADIN_SKIP_TESTS=true)');
+            $this->warn('   Fixes will be applied and PRs created WITHOUT running tests.');
+            $this->newLine();
         }
 
         return true;
@@ -146,7 +153,7 @@ class HealCommand extends Command
         $output = [];
         $returnCode = 0;
         exec('git --version 2>&1', $output, $returnCode);
-        
+
         return $returnCode === 0;
     }
 
@@ -158,7 +165,7 @@ class HealCommand extends Command
         $output = [];
         $returnCode = 0;
         exec('git rev-parse --git-dir 2>&1', $output, $returnCode);
-        
+
         return $returnCode === 0;
     }
 }

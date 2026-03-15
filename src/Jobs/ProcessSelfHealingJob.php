@@ -298,6 +298,29 @@ class ProcessSelfHealingJob implements ShouldQueue
                 return false;
             }
 
+            // Run tests (unless skipped via config)
+            $skipTests = config('paladin.testing.skip_tests', false);
+
+            if ($skipTests) {
+                Log::info('[Paladin] Skipping test execution (PALADIN_SKIP_TESTS=true)');
+
+                $healingAttempt->update([
+                    'test_output' => 'Tests skipped (PALADIN_SKIP_TESTS=true)',
+                ]);
+
+                // Tests skipped - proceed directly to commit and PR
+                $success = $this->commitAndCreatePR($healingAttempt, $issue, $worktree['path'], $attemptNumber, $maxAttempts);
+
+                if ($success) {
+                    // Cleanup worktree if configured
+                    if (config('paladin.worktree.cleanup_after_success', true)) {
+                        $worktreeManager->remove($worktree['path']);
+                    }
+                }
+
+                return $success;
+            }
+
             // Run tests
             $testRunner = new TestRunner;
             $testResult = $testRunner->run($worktree['path']);
