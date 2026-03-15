@@ -334,6 +334,21 @@ class ProcessSelfHealingJob implements ShouldQueue
     }
 
     /**
+     * Check if a remote repository is configured.
+     */
+    protected function hasRemote(string $worktreePath): bool
+    {
+        $command = sprintf(
+            'cd %s && git remote get-url origin 2>&1',
+            escapeshellarg($worktreePath)
+        );
+
+        exec($command, $output, $returnCode);
+
+        return $returnCode === 0;
+    }
+
+    /**
      * Commit changes and create a pull request.
      */
     protected function commitAndCreatePR(
@@ -380,38 +395,53 @@ class ProcessSelfHealingJob implements ShouldQueue
             return false;
         }
 
-        // Push branch
-        $pushCommand = sprintf(
-            'cd %s && git push origin %s',
-            escapeshellarg($worktreePath),
-            escapeshellarg($branchName)
-        );
-        exec($pushCommand, $output, $returnCode);
-
-        if ($returnCode !== 0) {
-            Log::error('[Paladin] Failed to push branch', ['output' => implode("\n", $output)]);
-
-            return false;
-        }
-
         $healingAttempt->update(['branch_name' => $branchName]);
 
-        // Create PR
-        $prManager = new PullRequestManager;
-        $prTitle = $this->generatePRTitle($issue);
-        $prBody = $this->generatePRBody($issue, $attemptNumber, $maxAttempts);
+        // Check if remote exists
+        $hasRemote = $this->hasRemote($worktreePath);
 
-        $prUrl = $prManager->createPullRequest($branchName, $prTitle, $prBody);
+        // Push branch if remote is configured
+        if ($hasRemote) {
+            $pushCommand = sprintf(
+                'cd %s && git push origin %s',
+                escapeshellarg($worktreePath),
+                escapeshellarg($branchName)
+            );
+            exec($pushCommand, $pushOutput, $pushReturnCode);
 
-        if ($prUrl) {
-            $healingAttempt->markAsFixed($prUrl);
+            if ($pushReturnCode !== 0) {
+                Log::error('[Paladin] Failed to push branch', ['output' => implode("\n", $pushOutput)]);
+
+                return false;
+            }
+
+            // Create PR only if push succeeded
+            $prManager = new PullRequestManager;
+            $prTitle = $this->generatePRTitle($issue);
+            $prBody = $this->generatePRBody($issue, $attemptNumber, $maxAttempts);
+
+            $prUrl = $prManager->createPullRequest($branchName, $prTitle, $prBody);
+
+            if ($prUrl) {
+                $healingAttempt->markAsFixed($prUrl);
+
+                return true;
+            }
+
+            $healingAttempt->markAsFailed('Failed to create pull request');
+
+            return false;
+        } else {
+            // No remote configured - mark as fixed locally
+            Log::info('[Paladin] No remote configured, fix committed locally', [
+                'branch' => $branchName,
+                'worktree_path' => $worktreePath,
+            ]);
+
+            $healingAttempt->markAsFixed(null);
 
             return true;
         }
-
-        $healingAttempt->markAsFailed('Failed to create pull request');
-
-        return false;
     }
 
     /**
