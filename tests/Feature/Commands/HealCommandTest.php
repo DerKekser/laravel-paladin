@@ -302,4 +302,33 @@ class HealCommandTest extends TestCase
 
         Queue::assertPushed(ProcessSelfHealingJob::class);
     }
+
+    /** @test */
+    public function it_fails_when_unsupported_evaluator_configured()
+    {
+        config(['paladin.ai.evaluator' => 'unsupported-evaluator']);
+
+        $this->artisan('paladin:heal')
+            ->expectsOutput('Configuration errors detected:')
+            ->assertExitCode(1);
+
+        Queue::assertNothingPushed();
+    }
+
+    /** @test */
+    public function it_accepts_opencode_evaluator_without_ai_provider_credentials()
+    {
+        config([
+            'paladin.ai.evaluator' => 'opencode',
+            'paladin.ai.provider' => null,
+            'paladin.ai.credentials.gemini_api_key' => null,
+        ]);
+
+        // OpenCode evaluator doesn't require AI provider credentials.
+        // It may still fail if opencode binary is not available on this system,
+        // but it should NOT fail because of missing AI provider config.
+        $this->artisan('paladin:heal')
+            ->doesntExpectOutputToContain('AI provider not configured')
+            ->doesntExpectOutputToContain('PALADIN_AI_PROVIDER');
+    }
 }

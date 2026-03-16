@@ -136,7 +136,7 @@ class OpenCodeRunner
      */
     public function isAvailable(): bool
     {
-        exec("which {$this->binaryPath} 2>/dev/null", $output, $returnCode);
+        exec(sprintf('which %s 2>/dev/null', escapeshellarg($this->binaryPath)), $output, $returnCode);
 
         return $returnCode === 0;
     }

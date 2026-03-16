@@ -8,7 +8,8 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Kekser\LaravelPaladin\Ai\AgentFactory;
+use Kekser\LaravelPaladin\Ai\EvaluatorFactory;
+use Kekser\LaravelPaladin\Contracts\IssueEvaluator;
 use Kekser\LaravelPaladin\Models\HealingAttempt;
 use Kekser\LaravelPaladin\Services\FileBoundaryValidator;
 use Kekser\LaravelPaladin\Services\LogScanner;
@@ -24,6 +25,8 @@ class ProcessSelfHealingJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected array $specificIssues;
+
+    protected ?IssueEvaluator $evaluator = null;
 
     /**
      * Create a new job instance.
@@ -124,9 +127,8 @@ class ProcessSelfHealingJob implements ShouldQueue
     {
         Log::info('[Paladin] Analyzing issues with AI');
 
-        $factory = app(AgentFactory::class);
-        $analyzer = $factory->createIssueAnalyzer();
-        $issues = $analyzer->analyze($logEntries);
+        $evaluator = $this->getEvaluator();
+        $issues = $evaluator->analyzeIssues($logEntries);
 
         // Sort by severity
         $severityOrder = ['critical' => 1, 'high' => 2, 'medium' => 3, 'low' => 4];
@@ -321,9 +323,8 @@ class ProcessSelfHealingJob implements ShouldQueue
                 $testFailureOutput = $previousAttempt?->test_output;
             }
 
-            $factory = app(AgentFactory::class);
-            $promptGenerator = $factory->createPromptGenerator($issue, $testFailureOutput);
-            $prompt = $promptGenerator->generate();
+            $evaluator = $this->getEvaluator();
+            $prompt = $evaluator->generatePrompt($issue, $testFailureOutput);
 
             $healingAttempt->update(['opencode_prompt' => $prompt]);
 
@@ -552,5 +553,17 @@ class ProcessSelfHealingJob implements ShouldQueue
             '{attempt_number}' => $attemptNumber,
             '{max_attempts}' => $maxAttempts,
         ]);
+    }
+
+    /**
+     * Get the configured issue evaluator instance.
+     */
+    protected function getEvaluator(): IssueEvaluator
+    {
+        if ($this->evaluator === null) {
+            $this->evaluator = app(EvaluatorFactory::class)->create();
+        }
+
+        return $this->evaluator;
     }
 }
