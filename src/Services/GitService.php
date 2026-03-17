@@ -3,6 +3,7 @@
 namespace Kekser\LaravelPaladin\Services;
 
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Process;
 
 class GitService
 {
@@ -11,14 +12,9 @@ class GitService
      */
     public function hasRemote(string $path): bool
     {
-        $command = sprintf(
-            'cd %s && git remote get-url origin 2>&1',
-            escapeshellarg($path)
-        );
+        $result = Process::path($path)->run(['git', 'remote', 'get-url', 'origin']);
 
-        exec($command, $output, $returnCode);
-
-        return $returnCode === 0;
+        return $result->successful();
     }
 
     /**
@@ -26,18 +22,13 @@ class GitService
      */
     public function createBranch(string $path, string $branchName): bool
     {
-        $commands = [
-            sprintf('cd %s', escapeshellarg($path)),
-            sprintf('git checkout -b %s', escapeshellarg($branchName)),
-        ];
+        $result = Process::path($path)->run(['git', 'checkout', '-b', $branchName]);
 
-        exec(implode(' && ', $commands), $output, $returnCode);
-
-        if ($returnCode !== 0) {
+        if (! $result->successful()) {
             Log::error('[Paladin] Failed to create branch', [
                 'path' => $path,
                 'branch' => $branchName,
-                'output' => implode("\n", $output),
+                'output' => $result->output(),
             ]);
 
             return false;
@@ -51,18 +42,12 @@ class GitService
      */
     public function commit(string $path, string $message): bool
     {
-        $commands = [
-            sprintf('cd %s', escapeshellarg($path)),
-            'git add .',
-            sprintf('git commit -m %s', escapeshellarg($message)),
-        ];
+        $result = Process::path($path)->run(['sh', '-c', sprintf('git add . && git commit -m %s', escapeshellarg($message))]);
 
-        exec(implode(' && ', $commands), $output, $returnCode);
-
-        if ($returnCode !== 0) {
+        if (! $result->successful()) {
             Log::error('[Paladin] Failed to commit changes', [
                 'path' => $path,
-                'output' => implode("\n", $output),
+                'output' => $result->output(),
             ]);
 
             return false;
@@ -76,19 +61,13 @@ class GitService
      */
     public function push(string $path, string $branchName): bool
     {
-        $command = sprintf(
-            'cd %s && git push origin %s',
-            escapeshellarg($path),
-            escapeshellarg($branchName)
-        );
+        $result = Process::path($path)->run(['git', 'push', 'origin', $branchName]);
 
-        exec($command, $output, $returnCode);
-
-        if ($returnCode !== 0) {
+        if (! $result->successful()) {
             Log::error('[Paladin] Failed to push branch', [
                 'path' => $path,
                 'branch' => $branchName,
-                'output' => implode("\n", $output),
+                'output' => $result->output(),
             ]);
 
             return false;

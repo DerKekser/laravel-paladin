@@ -3,7 +3,6 @@
 use Illuminate\Support\Facades\File;
 use Kekser\LaravelPaladin\Models\HealingAttempt;
 use Kekser\LaravelPaladin\Services\WorktreeManager;
-use Mockery;
 
 test('it handles no worktrees directory found', function () {
     $basePath = '/tmp/non-existent';

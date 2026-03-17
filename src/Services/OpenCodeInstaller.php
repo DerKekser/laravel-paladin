@@ -4,6 +4,7 @@ namespace Kekser\LaravelPaladin\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Process;
 use RuntimeException;
 
 class OpenCodeInstaller
@@ -17,9 +18,7 @@ class OpenCodeInstaller
     {
         $binaryPath = config('paladin.opencode.binary_path', 'opencode');
 
-        exec("which {$binaryPath} 2>/dev/null", $output, $returnCode);
-
-        return $returnCode === 0 && ! empty($output);
+        return Process::run(['which', $binaryPath])->successful();
     }
 
     /**
@@ -64,19 +63,19 @@ class OpenCodeInstaller
             chmod($tempFile, 0755);
 
             // Execute the installation script
-            exec("bash {$tempFile} 2>&1", $output, $returnCode);
+            $result = Process::run(sprintf('bash %s', escapeshellarg($tempFile)));
 
             // Clean up temporary file
             @unlink($tempFile);
 
-            if ($returnCode !== 0) {
+            if (! $result->successful()) {
                 Log::error('[Paladin] OpenCode installation failed', [
-                    'output' => implode("\n", $output),
-                    'return_code' => $returnCode,
+                    'output' => $result->output(),
+                    'return_code' => $result->exitCode(),
                 ]);
 
                 throw new RuntimeException(
-                    'OpenCode installation failed: '.implode("\n", $output)
+                    'OpenCode installation failed: '.$result->output()
                 );
             }
 
@@ -108,10 +107,10 @@ class OpenCodeInstaller
 
         $binaryPath = config('paladin.opencode.binary_path', 'opencode');
 
-        exec("{$binaryPath} --version 2>&1", $output, $returnCode);
+        $result = Process::run(sprintf('%s --version', escapeshellarg($binaryPath)));
 
-        if ($returnCode === 0 && ! empty($output)) {
-            return trim($output[0]);
+        if ($result->successful()) {
+            return trim($result->output());
         }
 
         return null;
