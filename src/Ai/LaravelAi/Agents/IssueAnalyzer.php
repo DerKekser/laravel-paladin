@@ -1,6 +1,6 @@
 <?php
 
-namespace Kekser\LaravelPaladin\Ai\Agents;
+namespace Kekser\LaravelPaladin\Ai\LaravelAi\Agents;
 
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Kekser\LaravelPaladin\Ai\AiProviderRetryHandler;

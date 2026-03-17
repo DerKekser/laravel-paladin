@@ -3,8 +3,8 @@
 namespace Kekser\LaravelPaladin\Ai;
 
 use InvalidArgumentException;
-use Kekser\LaravelPaladin\Ai\Evaluators\LaravelAiEvaluator;
-use Kekser\LaravelPaladin\Ai\Evaluators\OpenCodeEvaluator;
+use Kekser\LaravelPaladin\Ai\LaravelAi\LaravelAiEvaluator;
+use Kekser\LaravelPaladin\Ai\Opencode\OpenCodeEvaluator;
 use Kekser\LaravelPaladin\Contracts\IssueEvaluator;
 
 class EvaluatorFactory

@@ -1,6 +1,6 @@
 <?php
 
-namespace Kekser\LaravelPaladin\Ai\Evaluators;
+namespace Kekser\LaravelPaladin\Ai\Opencode;
 
 use Illuminate\Support\Facades\Log;
 use Kekser\LaravelPaladin\Contracts\IssueEvaluator;

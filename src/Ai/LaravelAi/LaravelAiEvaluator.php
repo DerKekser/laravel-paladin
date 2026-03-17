@@ -1,6 +1,6 @@
 <?php
 
-namespace Kekser\LaravelPaladin\Ai\Evaluators;
+namespace Kekser\LaravelPaladin\Ai\LaravelAi;
 
 use Kekser\LaravelPaladin\Ai\AgentFactory;
 use Kekser\LaravelPaladin\Contracts\IssueEvaluator;
