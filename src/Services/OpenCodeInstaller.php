@@ -19,7 +19,7 @@ class OpenCodeInstaller
 
         exec("which {$binaryPath} 2>/dev/null", $output, $returnCode);
 
-        return $returnCode === 0 && !empty($output);
+        return $returnCode === 0 && ! empty($output);
     }
 
     /**
@@ -31,9 +31,9 @@ class OpenCodeInstaller
             return true;
         }
 
-        if (!config('paladin.opencode.auto_install', true)) {
+        if (! config('paladin.opencode.auto_install', true)) {
             throw new RuntimeException(
-                'OpenCode is not installed and auto-installation is disabled. ' .
+                'OpenCode is not installed and auto-installation is disabled. '.
                 'Please install OpenCode manually from https://opencode.ai or enable auto-installation in config.'
             );
         }
@@ -52,7 +52,7 @@ class OpenCodeInstaller
             // Download the installation script
             $response = Http::timeout(30)->get($this->installScriptUrl);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 throw new RuntimeException('Failed to download OpenCode installation script');
             }
 
@@ -76,12 +76,12 @@ class OpenCodeInstaller
                 ]);
 
                 throw new RuntimeException(
-                    'OpenCode installation failed: ' . implode("\n", $output)
+                    'OpenCode installation failed: '.implode("\n", $output)
                 );
             }
 
             // Verify installation
-            if (!$this->isInstalled()) {
+            if (! $this->isInstalled()) {
                 throw new RuntimeException('OpenCode installation completed but binary not found in PATH');
             }
 
@@ -102,7 +102,7 @@ class OpenCodeInstaller
      */
     public function getVersion(): ?string
     {
-        if (!$this->isInstalled()) {
+        if (! $this->isInstalled()) {
             return null;
         }
 
@@ -110,7 +110,7 @@ class OpenCodeInstaller
 
         exec("{$binaryPath} --version 2>&1", $output, $returnCode);
 
-        if ($returnCode === 0 && !empty($output)) {
+        if ($returnCode === 0 && ! empty($output)) {
             return trim($output[0]);
         }
 

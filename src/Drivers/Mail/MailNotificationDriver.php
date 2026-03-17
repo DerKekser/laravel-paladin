@@ -2,13 +2,14 @@
 
 namespace Kekser\LaravelPaladin\Drivers\Mail;
 
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Kekser\LaravelPaladin\Contracts\PullRequestDriver;
 
 class MailNotificationDriver implements PullRequestDriver
 {
     protected ?string $to;
+
     protected ?string $from;
 
     public function __construct()
@@ -26,8 +27,9 @@ class MailNotificationDriver implements PullRequestDriver
         string $body,
         string $baseBranch = 'main'
     ): ?string {
-        if (!$this->isConfigured()) {
+        if (! $this->isConfigured()) {
             Log::warning('[Paladin] Mail driver is not configured, skipping notification');
+
             return null;
         }
 
@@ -55,7 +57,7 @@ class MailNotificationDriver implements PullRequestDriver
 
             Log::info('[Paladin] Fix notification email sent successfully');
 
-            return 'email:' . $this->to;
+            return 'email:'.$this->to;
         } catch (\Exception $e) {
             Log::error('[Paladin] Failed to send fix notification email', [
                 'error' => $e->getMessage(),
@@ -70,7 +72,7 @@ class MailNotificationDriver implements PullRequestDriver
      */
     public function isConfigured(): bool
     {
-        return !empty($this->to) && !empty($this->from);
+        return ! empty($this->to) && ! empty($this->from);
     }
 
     /**
@@ -80,7 +82,7 @@ class MailNotificationDriver implements PullRequestDriver
     {
         exec('git remote get-url origin 2>&1', $output, $returnCode);
 
-        if ($returnCode === 0 && !empty($output)) {
+        if ($returnCode === 0 && ! empty($output)) {
             return $output[0];
         }
 

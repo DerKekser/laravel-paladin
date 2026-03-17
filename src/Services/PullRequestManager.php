@@ -3,8 +3,8 @@
 namespace Kekser\LaravelPaladin\Services;
 
 use Kekser\LaravelPaladin\Contracts\PullRequestDriver;
-use Kekser\LaravelPaladin\Drivers\GitHub\GitHubPRDriver;
 use Kekser\LaravelPaladin\Drivers\AzureDevOps\AzureDevOpsPRDriver;
+use Kekser\LaravelPaladin\Drivers\GitHub\GitHubPRDriver;
 use Kekser\LaravelPaladin\Drivers\Mail\MailNotificationDriver;
 use RuntimeException;
 
@@ -17,7 +17,7 @@ class PullRequestManager
         string $branch,
         string $title,
         string $body,
-        string $baseBranch = null
+        ?string $baseBranch = null
     ): ?string {
         $baseBranch = $baseBranch ?? config('paladin.git.default_branch', 'main');
 
@@ -34,9 +34,9 @@ class PullRequestManager
         $provider = config('paladin.pr_provider', 'github');
 
         return match ($provider) {
-            'github' => new GitHubPRDriver(),
-            'azure-devops' => new AzureDevOpsPRDriver(),
-            'mail' => new MailNotificationDriver(),
+            'github' => new GitHubPRDriver,
+            'azure-devops' => new AzureDevOpsPRDriver,
+            'mail' => new MailNotificationDriver,
             default => throw new RuntimeException("Unknown PR provider: {$provider}"),
         };
     }
@@ -47,9 +47,9 @@ class PullRequestManager
     public function getFirstAvailableDriver(): ?PullRequestDriver
     {
         $drivers = [
-            new GitHubPRDriver(),
-            new AzureDevOpsPRDriver(),
-            new MailNotificationDriver(),
+            new GitHubPRDriver,
+            new AzureDevOpsPRDriver,
+            new MailNotificationDriver,
         ];
 
         foreach ($drivers as $driver) {
