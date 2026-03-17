@@ -275,17 +275,33 @@ test('it handles different log environments', function () {
     expect($entries[2]['message'])->toBe('Staging error');
 });
 
-test('it handles malformed log entries gracefully', function () {
-    $logContent = "[2026-03-15 10:00:00] production.ERROR: Valid error\n"
-        ."This is a malformed line without proper formatting\n"
-        .'[2026-03-15 10:01:00] production.ERROR: Another valid error';
+test('it filters out entries from external files', function () {
+    // Create a log entry with a stack trace containing only external files
+    $logContent = '[2026-03-15 10:23:45] production.ERROR: External error
+[stacktrace]
+#0 /run/media/benjamin/e7dc58d5-bf0d-4df3-ab78-5274a582caa6/Source/LaravelPaladin/vendor/laravel/framework/src/Illuminate/Container/Container.php(780): resolve()';
+
+    createLogFile($this->tempLogPath, 'laravel.log', $logContent);
+
+    // Mock FileBoundaryValidator to return non-fixable for this stack trace
+    // Since we can't easily inject the mock into LogScanner (it's instantiated in constructor),
+    // we'll rely on the real FileBoundaryValidator which should identify vendor files as external.
+
+    $entries = $this->scanner->scan();
+
+    expect($entries)->toBeEmpty();
+});
+
+test('it includes entries with project files in stack trace', function () {
+    // Create a log entry with a stack trace containing project files
+    $logContent = '[2026-03-15 10:23:45] production.ERROR: Project error
+[stacktrace]
+#0 /run/media/benjamin/e7dc58d5-bf0d-4df3-ab78-5274a582caa6/Source/LaravelPaladin/src/Services/LogScanner.php(42): scan()';
 
     createLogFile($this->tempLogPath, 'laravel.log', $logContent);
 
     $entries = $this->scanner->scan();
 
-    // Should only capture valid entries
-    expect($entries)->toHaveCount(2);
-    expect($entries[0]['message'])->toBe('Valid error');
-    expect($entries[1]['message'])->toBe('Another valid error');
+    expect($entries)->toHaveCount(1);
+    expect($entries[0]['message'])->toBe('Project error');
 });

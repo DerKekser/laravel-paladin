@@ -81,6 +81,18 @@ test('it commits changes', function () {
     expect($result)->toBeTrue();
 });
 
+test('it fails to commit changes', function () {
+    Process::fake([
+        '*' => Process::result('', 'Commit error', 1),
+    ]);
+
+    Log::shouldReceive('error')->once();
+
+    $result = $this->gitService->commit($this->tempDir, 'Fix issue');
+
+    expect($result)->toBeFalse();
+});
+
 test('it pushes a branch', function () {
     Process::fake([
         '*' => Process::result('', 0),
@@ -89,4 +101,16 @@ test('it pushes a branch', function () {
     $result = $this->gitService->push($this->tempDir, 'feature-branch');
 
     expect($result)->toBeTrue();
+});
+
+test('it fails to push branch', function () {
+    Process::fake([
+        '*' => Process::result('', 'Push error', 1),
+    ]);
+
+    Log::shouldReceive('error')->once();
+
+    $result = $this->gitService->push($this->tempDir, 'feature-branch');
+
+    expect($result)->toBeFalse();
 });

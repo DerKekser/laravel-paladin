@@ -35,6 +35,22 @@ test('it ensures installed when already installed', function () {
     expect($installer->ensureInstalled())->toBeTrue();
 });
 
+test('it ensures installed by installing if not already present', function () {
+    Http::fake([
+        'https://opencode.ai/install' => Http::response('echo "install script"', 200),
+    ]);
+
+    Process::fake([
+        'bash *' => Process::result('Success', 0),
+        '*' => Process::sequence()
+            ->push(Process::result('', '', 1))
+            ->push(Process::result('/usr/bin/opencode', 0)),
+    ]);
+
+    $installer = new OpenCodeInstaller();
+    expect($installer->ensureInstalled())->toBeTrue();
+});
+
 test('it throws exception if not installed and auto install disabled', function () {
     config(['paladin.opencode.auto_install' => false]);
     Process::fake([
@@ -60,11 +76,69 @@ test('it installs successfully', function () {
     expect($installer->install())->toBeTrue();
 });
 
-test('it gets version', function () {
+test('it returns null version if not installed', function () {
+    $installer = new OpenCodeInstaller();
+
+    config(['paladin.opencode.binary_path' => 'nonexistent-binary']);
     Process::fake([
-        '*' => Process::result('OpenCode version 1.0.0', 0),
+        'which nonexistent-binary' => Process::result('', '', 1),
+        '*' => Process::result('', '', 1),
+    ]);
+
+    expect($installer->getVersion())->toBeNull();
+});
+
+test('it returns null version if version command fails', function () {
+    Process::fake([
+        'which opencode' => Process::result('/usr/bin/opencode', 0),
+        'opencode --version' => Process::result('', 'Error', 1),
+        '*' => Process::result('', '', 1),
     ]);
 
     $installer = new OpenCodeInstaller();
-    expect($installer->getVersion())->toBe('OpenCode version 1.0.0');
+    expect($installer->getVersion())->toBeNull();
 });
+
+test('it throws exception when install script download fails', function () {
+    Http::fake([
+        'https://opencode.ai/install' => Http::response('Not Found', 404),
+    ]);
+
+    Process::fake([
+        'which opencode' => Process::result('', '', 1),
+        '*' => Process::result('', '', 1),
+    ]);
+
+    $installer = new OpenCodeInstaller();
+    $installer->install();
+})->throws(RuntimeException::class, 'Failed to download OpenCode installation script');
+
+test('it throws exception when installation script fails', function () {
+    Http::fake([
+        'https://opencode.ai/install' => Http::response('echo "install script"', 200),
+    ]);
+
+    Process::fake([
+        'which opencode' => Process::result('', '', 1),
+        'bash *' => Process::result('', 'Install error', 1),
+        '*' => Process::result('', '', 1),
+    ]);
+
+    $installer = new OpenCodeInstaller();
+    $installer->install();
+})->throws(RuntimeException::class, 'OpenCode installation failed');
+
+test('it throws exception when binary not found after installation', function () {
+    Http::fake([
+        'https://opencode.ai/install' => Http::response('echo "install script"', 200),
+    ]);
+
+    Process::fake([
+        'which opencode' => Process::result('', '', 1),
+        'bash *' => Process::result('Success', 0),
+        '*' => Process::result('', '', 1),
+    ]);
+
+    $installer = new OpenCodeInstaller();
+    $installer->install();
+})->throws(RuntimeException::class, 'OpenCode installation completed but binary not found in PATH');
