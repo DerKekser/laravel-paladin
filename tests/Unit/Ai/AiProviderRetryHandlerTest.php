@@ -18,9 +18,9 @@ beforeEach(function () {
 /**
  * Create a test exception with a specific code.
  */
-function createExceptionWithCode(string $message, int $code): \Exception
+function createExceptionWithCode(string $message, int $code): Exception
 {
-    return new class($message, $code) extends \Exception {};
+    return new class($message, $code) extends Exception {};
 }
 
 test('it executes callable successfully on first attempt', function () {
@@ -53,7 +53,7 @@ test('it retries on rate limit error with message', function () {
     $result = $this->handler->executeWithRetry(function () use (&$attempt) {
         $attempt++;
         if ($attempt < 2) {
-            throw new \Exception('API rate limit exceeded');
+            throw new Exception('API rate limit exceeded');
         }
 
         return 'success';
@@ -112,7 +112,7 @@ test('it retries on timeout errors', function () {
     $result = $this->handler->executeWithRetry(function () use (&$attempt) {
         $attempt++;
         if ($attempt < 2) {
-            throw new \Exception('Request timeout');
+            throw new Exception('Request timeout');
         }
 
         return 'success';
@@ -160,7 +160,7 @@ test('it detects authentication errors by status code', function () {
 
 test('it detects authentication errors by message', function () {
     $this->handler->executeWithRetry(function () {
-        throw new \Exception('Invalid API key provided');
+        throw new Exception('Invalid API key provided');
     });
 })->throws(AiAuthenticationException::class);
 
@@ -169,7 +169,7 @@ test('it does not retry quota exceeded errors', function () {
     try {
         $this->handler->executeWithRetry(function () use (&$attempt) {
             $attempt++;
-            throw new \Exception('Quota exceeded for this billing period');
+            throw new Exception('Quota exceeded for this billing period');
         });
     } catch (AiQuotaExceededException $e) {
         // Expected
@@ -180,7 +180,7 @@ test('it does not retry quota exceeded errors', function () {
 
 test('it converts generic exceptions to ai provider exception', function () {
     $this->handler->executeWithRetry(function () {
-        throw new \Exception('Unknown error');
+        throw new Exception('Unknown error');
     });
 })->throws(AiProviderException::class, 'AI provider error: Unknown error');
 
@@ -190,7 +190,7 @@ test('it respects max retries for rate limits', function () {
     try {
         $this->handler->executeWithRetry(function () use (&$attempt) {
             $attempt++;
-            throw new \Exception('rate limit exceeded');
+            throw new Exception('rate limit exceeded');
         });
     } catch (AiRateLimitException $e) {
         // Expected
@@ -222,7 +222,7 @@ test('it respects max retries for timeouts', function () {
     try {
         $this->handler->executeWithRetry(function () use (&$attempt) {
             $attempt++;
-            throw new \Exception('Request timed out');
+            throw new Exception('Request timed out');
         });
     } catch (AiTimeoutException $e) {
         // Expected
@@ -241,7 +241,7 @@ test('it includes context in exception', function () {
 
     try {
         $this->handler->executeWithRetry(function () {
-            throw new \Exception('API key invalid');
+            throw new Exception('API key invalid');
         }, $context);
     } catch (AiAuthenticationException $e) {
         expect($e->getContext())->toBe($context);
@@ -254,7 +254,7 @@ test('it logs retry attempts', function () {
     $this->handler->executeWithRetry(function () use (&$attempt) {
         $attempt++;
         if ($attempt < 3) {
-            throw new \Exception('rate limit exceeded');
+            throw new Exception('rate limit exceeded');
         }
 
         return 'success';
@@ -268,7 +268,7 @@ test('it logs retry attempts', function () {
 test('it logs non retryable errors', function () {
     try {
         $this->handler->executeWithRetry(function () {
-            throw new \Exception('Unauthorized');
+            throw new Exception('Unauthorized');
         });
     } catch (AiAuthenticationException $e) {
         // Expected
@@ -276,13 +276,13 @@ test('it logs non retryable errors', function () {
 
     Log::shouldHaveReceived('error')
         ->once()
-        ->with('[Paladin][AI] Non-retryable AI provider error', \Mockery::any());
+        ->with('[Paladin][AI] Non-retryable AI provider error', Mockery::any());
 });
 
 test('it logs max retries exceeded', function () {
     try {
         $this->handler->executeWithRetry(function () {
-            throw new \Exception('timeout');
+            throw new Exception('timeout');
         });
     } catch (AiTimeoutException $e) {
         // Expected
@@ -290,7 +290,7 @@ test('it logs max retries exceeded', function () {
 
     Log::shouldHaveReceived('error')
         ->once()
-        ->with('[Paladin][AI] Max retries exceeded for AI provider', \Mockery::any());
+        ->with('[Paladin][AI] Max retries exceeded for AI provider', Mockery::any());
 });
 
 test('it detects various rate limit messages', function () {
@@ -306,7 +306,7 @@ test('it detects various rate limit messages', function () {
         $result = $this->handler->executeWithRetry(function () use (&$attempt, $message) {
             $attempt++;
             if ($attempt < 2) {
-                throw new \Exception($message);
+                throw new Exception($message);
             }
 
             return 'success';
@@ -331,7 +331,7 @@ test('it detects various server error messages', function () {
         $result = $this->handler->executeWithRetry(function () use (&$attempt, $message) {
             $attempt++;
             if ($attempt < 2) {
-                throw new \Exception($message);
+                throw new Exception($message);
             }
 
             return 'success';
@@ -354,7 +354,7 @@ test('it detects various timeout messages', function () {
         $result = $this->handler->executeWithRetry(function () use (&$attempt, $message) {
             $attempt++;
             if ($attempt < 2) {
-                throw new \Exception($message);
+                throw new Exception($message);
             }
 
             return 'success';
@@ -376,7 +376,7 @@ test('it detects various authentication messages', function () {
     foreach ($messages as $message) {
         try {
             $this->handler->executeWithRetry(function () use ($message) {
-                throw new \Exception($message);
+                throw new Exception($message);
             });
             $this->fail("Expected AiAuthenticationException for message: {$message}");
         } catch (AiAuthenticationException $e) {

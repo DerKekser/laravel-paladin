@@ -1,8 +1,8 @@
 <?php
 
-use Kekser\LaravelPaladin\Ai\Opencode\OpenCodeEvaluator;
 use Kekser\LaravelPaladin\Ai\Opencode\Agents\IssueAnalyzer;
 use Kekser\LaravelPaladin\Ai\Opencode\Agents\PromptGenerator;
+use Kekser\LaravelPaladin\Ai\Opencode\OpenCodeEvaluator;
 use Kekser\LaravelPaladin\Contracts\IssueEvaluator;
 use Kekser\LaravelPaladin\Services\OpenCodeRunner;
 
@@ -11,7 +11,7 @@ use Kekser\LaravelPaladin\Services\OpenCodeRunner;
  */
 function setProtectedProperty(object $object, string $property, mixed $value): void
 {
-    $reflection = new \ReflectionClass($object);
+    $reflection = new ReflectionClass($object);
     $prop = $reflection->getProperty($property);
     $prop->setAccessible(true);
     $prop->setValue($object, $value);

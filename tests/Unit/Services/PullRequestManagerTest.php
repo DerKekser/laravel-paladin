@@ -1,14 +1,25 @@
 <?php
 
+use Kekser\LaravelPaladin\Contracts\PullRequestDriver;
 use Kekser\LaravelPaladin\Services\PullRequestManager;
 
 test('it uses github driver when configured', function () {
     config(['paladin.pr_provider' => 'github']);
 
     $manager = new PullRequestManager;
+    $driver1 = $manager->getDriver();
+    $driver2 = $manager->getDriver();
 
-    // We can't directly test the driver, but we can ensure no exception is thrown
-    expect($manager)->toBeInstanceOf(PullRequestManager::class);
+    expect($driver1)->toBe($driver2);
+});
+
+test('it can explicitly set the driver', function () {
+    $manager = new PullRequestManager;
+    $driver = Mockery::mock(PullRequestDriver::class);
+
+    $manager->setDriver($driver);
+
+    expect($manager->getDriver())->toBe($driver);
 });
 
 test('it uses azure driver when configured', function () {

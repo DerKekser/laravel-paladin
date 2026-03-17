@@ -86,10 +86,10 @@ test('it creates pull request successfully', function () {
     });
 
     Log::shouldHaveReceived('info')
-        ->with('[Paladin] Creating Azure DevOps pull request', \Mockery::any());
+        ->with('[Paladin] Creating Azure DevOps pull request', Mockery::any());
 
     Log::shouldHaveReceived('info')
-        ->with('[Paladin] Azure DevOps PR created successfully', \Mockery::any());
+        ->with('[Paladin] Azure DevOps PR created successfully', Mockery::any());
 
     $this->cleanupTestRepository($testRepo);
 });
@@ -158,7 +158,7 @@ test('it returns null on api failure', function () {
     expect($url)->toBeNull();
 
     Log::shouldHaveReceived('error')
-        ->with('[Paladin] Failed to create Azure DevOps PR', \Mockery::any());
+        ->with('[Paladin] Failed to create Azure DevOps PR', Mockery::any());
 
     $this->cleanupTestRepository($testRepo);
 });
@@ -168,7 +168,7 @@ test('it handles http exceptions', function () {
     exec("cd {$testRepo} && git remote add origin https://dev.azure.com/my-org/my-project/_git/my-repo 2>&1");
 
     Http::fake(function () {
-        throw new \Exception('Network error');
+        throw new Exception('Network error');
     });
 
     $originalDir = getcwd();
@@ -264,7 +264,7 @@ test('it returns null when remote url not found', function () {
     expect($url)->toBeNull();
 
     Log::shouldHaveReceived('error')
-        ->with('[Paladin] Azure DevOps PR creation error', \Mockery::any());
+        ->with('[Paladin] Azure DevOps PR creation error', Mockery::any());
 
     $this->cleanupTestRepository($testRepo);
 });
@@ -285,7 +285,7 @@ test('it returns null for non azure repository', function () {
     expect($url)->toBeNull();
 
     Log::shouldHaveReceived('error')
-        ->with('[Paladin] Azure DevOps PR creation error', \Mockery::any());
+        ->with('[Paladin] Azure DevOps PR creation error', Mockery::any());
 
     $this->cleanupTestRepository($testRepo);
 });

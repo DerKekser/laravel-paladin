@@ -31,9 +31,9 @@ afterEach(function () {
     }
 });
 
-function getProtectedMethod(string $class, string $methodName): \ReflectionMethod
+function getProtectedMethod(string $class, string $methodName): ReflectionMethod
 {
-    $reflection = new \ReflectionClass($class);
+    $reflection = new ReflectionClass($class);
     $method = $reflection->getMethod($methodName);
     $method->setAccessible(true);
 

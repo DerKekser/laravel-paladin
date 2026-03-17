@@ -11,6 +11,11 @@ use RuntimeException;
 class PullRequestManager
 {
     /**
+     * The active PR driver instance.
+     */
+    protected ?PullRequestDriver $driver = null;
+
+    /**
      * Create a pull request using the configured provider.
      */
     public function createPullRequest(
@@ -21,24 +26,38 @@ class PullRequestManager
     ): ?string {
         $baseBranch = $baseBranch ?? config('paladin.git.default_branch', 'main');
 
-        $driver = $this->getDriver();
-
-        return $driver->createPullRequest($branch, $title, $body, $baseBranch);
+        return $this->getDriver()->createPullRequest($branch, $title, $body, $baseBranch);
     }
 
     /**
      * Get the appropriate PR driver based on configuration.
      */
-    protected function getDriver(): PullRequestDriver
+    public function getDriver(): PullRequestDriver
     {
+        if ($this->driver !== null) {
+            return $this->driver;
+        }
+
         $provider = config('paladin.pr_provider', 'github');
 
-        return match ($provider) {
+        $this->driver = match ($provider) {
             'github' => new GitHubPRDriver,
             'azure-devops' => new AzureDevOpsPRDriver,
             'mail' => new MailNotificationDriver,
             default => throw new RuntimeException("Unknown PR provider: {$provider}"),
         };
+
+        return $this->driver;
+    }
+
+    /**
+     * Explicitly set the PR driver instance.
+     */
+    public function setDriver(PullRequestDriver $driver): self
+    {
+        $this->driver = $driver;
+
+        return $this;
     }
 
     /**

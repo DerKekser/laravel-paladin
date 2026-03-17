@@ -3,6 +3,7 @@
 namespace Kekser\LaravelPaladin\Ai\Opencode\Agents;
 
 use Illuminate\Support\Facades\Log;
+use Kekser\LaravelPaladin\Ai\Concerns\InteractsWithLogEntries;
 use Kekser\LaravelPaladin\Services\OpenCodeRunner;
 use RuntimeException;
 
@@ -11,6 +12,8 @@ use RuntimeException;
  */
 class IssueAnalyzer
 {
+    use InteractsWithLogEntries;
+
     protected OpenCodeRunner $runner;
 
     public function __construct()
@@ -52,17 +55,7 @@ class IssueAnalyzer
      */
     protected function buildAnalysisPrompt(array $logEntries): string
     {
-        $formattedEntries = array_map(function ($entry) {
-            return sprintf(
-                "[%s] %s: %s\n%s",
-                date('Y-m-d H:i:s', $entry['timestamp']),
-                strtoupper($entry['level']),
-                $entry['message'],
-                $entry['stack_trace'] ?? ''
-            );
-        }, $logEntries);
-
-        $entriesText = implode("\n\n---\n\n", $formattedEntries);
+        $entriesText = $this->formatLogEntries($logEntries);
 
         return <<<PROMPT
 You are an expert Laravel application debugger. Analyze the following log entries and extract structured issue information.

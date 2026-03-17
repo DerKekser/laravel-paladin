@@ -153,7 +153,7 @@ test('it logs test execution start', function () {
     $runner->run($this->tempDir);
 
     Log::shouldHaveReceived('info')
-        ->with('[Paladin] Running tests', \Mockery::any());
+        ->with('[Paladin] Running tests', Mockery::any());
 });
 
 test('it logs test execution completion', function () {
@@ -167,7 +167,7 @@ test('it logs test execution completion', function () {
     $runner->run($this->tempDir);
 
     Log::shouldHaveReceived('info')
-        ->with('[Paladin] Test execution completed', \Mockery::any());
+        ->with('[Paladin] Test execution completed', Mockery::any());
 });
 
 test('it includes return code in result', function () {

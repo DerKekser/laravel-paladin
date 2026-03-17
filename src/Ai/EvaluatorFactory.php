@@ -10,18 +10,39 @@ use Kekser\LaravelPaladin\Contracts\IssueEvaluator;
 class EvaluatorFactory
 {
     /**
-     * Create the configured IssueEvaluator instance.
+     * The active evaluator instance.
+     */
+    protected ?IssueEvaluator $evaluator = null;
+
+    /**
+     * Create or return the configured IssueEvaluator instance.
      */
     public function create(): IssueEvaluator
     {
-        $evaluator = config('paladin.ai.evaluator', 'laravel-ai') ?: 'laravel-ai';
+        if ($this->evaluator !== null) {
+            return $this->evaluator;
+        }
 
-        return match (strtolower($evaluator)) {
+        $evaluatorName = config('paladin.ai.evaluator', 'laravel-ai') ?: 'laravel-ai';
+
+        $this->evaluator = match (strtolower($evaluatorName)) {
             'laravel-ai' => new LaravelAiEvaluator,
             'opencode' => new OpenCodeEvaluator,
             default => throw new InvalidArgumentException(
-                "Unsupported AI evaluator: {$evaluator}. Supported evaluators: laravel-ai, opencode"
+                "Unsupported AI evaluator: {$evaluatorName}. Supported evaluators: laravel-ai, opencode"
             ),
         };
+
+        return $this->evaluator;
+    }
+
+    /**
+     * Explicitly set the evaluator instance.
+     */
+    public function setEvaluator(IssueEvaluator $evaluator): self
+    {
+        $this->evaluator = $evaluator;
+
+        return $this;
     }
 }

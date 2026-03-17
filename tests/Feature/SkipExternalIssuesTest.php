@@ -97,7 +97,7 @@ test('it creates skipped healing attempt for external issues', function () {
 
     // Simulate processing this issue
     $job = new ProcessSelfHealingJob([]);
-    $reflector = new \ReflectionClass($job);
+    $reflector = new ReflectionClass($job);
     $method = $reflector->getMethod('processIssue');
     $method->setAccessible(true);
     $method->invoke($job, $issue);
@@ -136,7 +136,7 @@ test('it processes fixable issues with internal files', function () {
     Config::set('paladin.testing.max_fix_attempts', 0);
 
     $job = new ProcessSelfHealingJob([]);
-    $reflector = new \ReflectionClass($job);
+    $reflector = new ReflectionClass($job);
     $method = $reflector->getMethod('processIssue');
     $method->setAccessible(true);
 

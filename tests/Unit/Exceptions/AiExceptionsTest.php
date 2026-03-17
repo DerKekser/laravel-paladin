@@ -27,7 +27,7 @@ test('rate limit exception is retryable', function () {
 });
 
 test('rate limit exception can be created from exception', function () {
-    $original = new \Exception('Too many requests');
+    $original = new Exception('Too many requests');
     $context = ['provider' => 'openai'];
 
     $exception = AiRateLimitException::fromException($original, $context);
@@ -77,7 +77,7 @@ test('all exceptions extend ai provider exception', function () {
 });
 
 test('exceptions preserve previous exception', function () {
-    $original = new \Exception('Original error');
+    $original = new Exception('Original error');
     $exception = new AiProviderException('Wrapped error', 0, $original);
 
     expect($exception->getPrevious())->toBe($original);

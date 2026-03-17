@@ -1,7 +1,8 @@
 <?php
 
-use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Queue;
+use Kekser\LaravelPaladin\Commands\HealCommand;
 use Kekser\LaravelPaladin\Jobs\ProcessSelfHealingJob;
 
 beforeEach(function () {
@@ -71,11 +72,11 @@ test('it fails when unsupported ai provider', function () {
 });
 
 test('it fails when git not in path', function () {
-    $mock = Mockery::mock(Kekser\LaravelPaladin\Commands\HealCommand::class.'[isGitAvailable]');
+    $mock = Mockery::mock(HealCommand::class.'[isGitAvailable]');
     $mock->shouldReceive('isGitAvailable')->andReturn(false);
 
     // Register the mock in the container
-    app()->instance(Kekser\LaravelPaladin\Commands\HealCommand::class, $mock);
+    app()->instance(HealCommand::class, $mock);
 
     $this->artisan('paladin:heal')
         ->expectsOutput('Configuration errors detected:')
@@ -214,7 +215,7 @@ test('it handles sync execution errors gracefully', function () {
     Bus::shouldReceive('dispatchSync')
         ->once()
         ->with(Mockery::type(ProcessSelfHealingJob::class))
-        ->andThrow(new \Exception('Sync execution failed'));
+        ->andThrow(new Exception('Sync execution failed'));
 
     $this->artisan('paladin:heal --sync')
         ->expectsOutput('Running in synchronous mode - this may take a while...')
@@ -227,7 +228,7 @@ test('it shows stack trace in verbose mode on sync error', function () {
     Bus::shouldReceive('dispatchSync')
         ->once()
         ->with(Mockery::type(ProcessSelfHealingJob::class))
-        ->andThrow(new \Exception('Sync execution failed'));
+        ->andThrow(new Exception('Sync execution failed'));
 
     $this->artisan('paladin:heal --sync -v')
         ->expectsOutput('Running in synchronous mode - this may take a while...')

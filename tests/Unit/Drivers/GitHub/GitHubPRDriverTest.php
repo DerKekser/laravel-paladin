@@ -84,7 +84,7 @@ test('it creates pull request successfully', function () {
     });
 
     Log::shouldHaveReceived('info')
-        ->with('[Paladin] Creating GitHub pull request', \Mockery::any());
+        ->with('[Paladin] Creating GitHub pull request', Mockery::any());
 
     Log::shouldHaveReceived('info')
         ->with('[Paladin] GitHub PR created successfully', ['url' => 'https://github.com/owner/test-repo/pull/123']);
@@ -141,7 +141,7 @@ test('it returns null on api failure', function () {
     expect($url)->toBeNull();
 
     Log::shouldHaveReceived('error')
-        ->with('[Paladin] Failed to create GitHub PR', \Mockery::any());
+        ->with('[Paladin] Failed to create GitHub PR', Mockery::any());
 
     $this->cleanupTestRepository($testRepo);
 });
@@ -151,7 +151,7 @@ test('it handles http exceptions', function () {
     exec("cd {$testRepo} && git remote add origin git@github.com:owner/test-repo.git 2>&1");
 
     Http::fake(function () {
-        throw new \Exception('Network error');
+        throw new Exception('Network error');
     });
 
     $originalDir = getcwd();
@@ -260,7 +260,7 @@ test('it returns null when remote url not found', function () {
     expect($url)->toBeNull();
 
     Log::shouldHaveReceived('error')
-        ->with('[Paladin] GitHub PR creation error', \Mockery::any());
+        ->with('[Paladin] GitHub PR creation error', Mockery::any());
 
     $this->cleanupTestRepository($testRepo);
 });
@@ -283,7 +283,7 @@ test('it returns null for non github repository', function () {
     expect($url)->toBeNull();
 
     Log::shouldHaveReceived('error')
-        ->with('[Paladin] GitHub PR creation error', \Mockery::any());
+        ->with('[Paladin] GitHub PR creation error', Mockery::any());
 
     $this->cleanupTestRepository($testRepo);
 });

@@ -12,6 +12,7 @@ use Kekser\LaravelPaladin\Ai\EvaluatorFactory;
 use Kekser\LaravelPaladin\Contracts\IssueEvaluator;
 use Kekser\LaravelPaladin\Models\HealingAttempt;
 use Kekser\LaravelPaladin\Services\FileBoundaryValidator;
+use Kekser\LaravelPaladin\Services\GitService;
 use Kekser\LaravelPaladin\Services\LogScanner;
 use Kekser\LaravelPaladin\Services\OpenCodeInstaller;
 use Kekser\LaravelPaladin\Services\OpenCodeRunner;
@@ -399,21 +400,6 @@ class ProcessSelfHealingJob implements ShouldQueue
     }
 
     /**
-     * Check if a remote repository is configured.
-     */
-    protected function hasRemote(string $worktreePath): bool
-    {
-        $command = sprintf(
-            'cd %s && git remote get-url origin 2>&1',
-            escapeshellarg($worktreePath)
-        );
-
-        exec($command, $output, $returnCode);
-
-        return $returnCode === 0;
-    }
-
-    /**
      * Commit changes and create a pull request.
      */
     protected function commitAndCreatePR(
@@ -423,65 +409,36 @@ class ProcessSelfHealingJob implements ShouldQueue
         int $attemptNumber,
         int $maxAttempts
     ): bool {
+        $git = app(GitService::class);
+
         // Create branch name
         $branchPrefix = config('paladin.git.branch_prefix', 'paladin/fix');
         $branchName = "{$branchPrefix}-".substr($issue['id'], 0, 8);
 
-        // Create and checkout branch - properly escape all arguments
-        $commands = [
-            sprintf('cd %s', escapeshellarg($worktreePath)),
-            sprintf('git checkout -b %s', escapeshellarg($branchName)),
-            'git add .',
-        ];
-
-        exec(implode(' && ', $commands), $output, $returnCode);
-
-        if ($returnCode !== 0) {
-            Log::error('[Paladin] Failed to create branch', ['output' => implode("\n", $output)]);
-
+        // Create and checkout branch
+        if (! $git->createBranch($worktreePath, $branchName)) {
             return false;
         }
 
-        // Generate commit message
+        // Generate commit message and commit
         $commitMessage = $this->generateCommitMessage($issue, $attemptNumber, $maxAttempts);
-
-        // Commit
-        $commitCommand = sprintf(
-            'cd %s && git commit -m %s',
-            escapeshellarg($worktreePath),
-            escapeshellarg($commitMessage)
-        );
-
-        exec($commitCommand, $output, $returnCode);
-
-        if ($returnCode !== 0) {
-            Log::error('[Paladin] Failed to commit changes', ['output' => implode("\n", $output)]);
-
+        if (! $git->commit($worktreePath, $commitMessage)) {
             return false;
         }
 
         $healingAttempt->update(['branch_name' => $branchName]);
 
         // Check if remote exists
-        $hasRemote = $this->hasRemote($worktreePath);
+        $hasRemote = $git->hasRemote($worktreePath);
 
         // Push branch if remote is configured
         if ($hasRemote) {
-            $pushCommand = sprintf(
-                'cd %s && git push origin %s',
-                escapeshellarg($worktreePath),
-                escapeshellarg($branchName)
-            );
-            exec($pushCommand, $pushOutput, $pushReturnCode);
-
-            if ($pushReturnCode !== 0) {
-                Log::error('[Paladin] Failed to push branch', ['output' => implode("\n", $pushOutput)]);
-
+            if (! $git->push($worktreePath, $branchName)) {
                 return false;
             }
 
             // Create PR only if push succeeded
-            $prManager = new PullRequestManager;
+            $prManager = app(PullRequestManager::class);
             $prTitle = $this->generatePRTitle($issue);
             $prBody = $this->generatePRBody($issue, $attemptNumber, $maxAttempts);
 
