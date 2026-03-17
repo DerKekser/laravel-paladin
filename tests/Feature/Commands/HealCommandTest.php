@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Bus;
 use Kekser\LaravelPaladin\Jobs\ProcessSelfHealingJob;
 
 beforeEach(function () {
@@ -70,9 +71,16 @@ test('it fails when unsupported ai provider', function () {
 });
 
 test('it fails when git not in path', function () {
-    // We can't actually remove git from PATH, so we'll skip this test
-    // or mock the exec call. For now, let's test with git available.
-    $this->markTestSkipped('Cannot reliably test git availability without mocking exec');
+    $mock = Mockery::mock(Kekser\LaravelPaladin\Commands\HealCommand::class.'[isGitAvailable]');
+    $mock->shouldReceive('isGitAvailable')->andReturn(false);
+
+    // Register the mock in the container
+    app()->instance(Kekser\LaravelPaladin\Commands\HealCommand::class, $mock);
+
+    $this->artisan('paladin:heal')
+        ->expectsOutput('Configuration errors detected:')
+        ->expectsOutput('  • Git is not available on your system. Laravel Paladin requires git to be installed.')
+        ->assertExitCode(1);
 });
 
 test('it fails when not in git repository', function () {
@@ -202,15 +210,29 @@ test('it supports openai provider', function () {
 });
 
 test('it handles sync execution errors gracefully', function () {
-    // Mark test as incomplete until we can properly mock job execution errors
-    $this->markTestIncomplete('Cannot easily mock job execution to throw exceptions without significant refactoring');
+    // Force a failure during sync dispatch
+    Bus::shouldReceive('dispatchSync')
+        ->once()
+        ->with(Mockery::type(ProcessSelfHealingJob::class))
+        ->andThrow(new \Exception('Sync execution failed'));
+
+    $this->artisan('paladin:heal --sync')
+        ->expectsOutput('Running in synchronous mode - this may take a while...')
+        ->expectsOutput('✗ Self-healing process failed: Sync execution failed')
+        ->assertExitCode(1);
 });
 
 test('it shows stack trace in verbose mode on sync error', function () {
-    // Similar to above - difficult to test without actual error scenario
-    // We'll test that verbose mode works
+    // Force a failure during sync dispatch
+    Bus::shouldReceive('dispatchSync')
+        ->once()
+        ->with(Mockery::type(ProcessSelfHealingJob::class))
+        ->andThrow(new \Exception('Sync execution failed'));
+
     $this->artisan('paladin:heal --sync -v')
-        ->assertExitCode(0);
+        ->expectsOutput('Running in synchronous mode - this may take a while...')
+        ->expectsOutput('✗ Self-healing process failed: Sync execution failed')
+        ->assertExitCode(1);
 });
 
 test('it validates configuration before queueing', function () {

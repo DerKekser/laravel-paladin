@@ -151,7 +151,7 @@ class HealCommand extends Command
     /**
      * Check if git is available on the system.
      */
-    protected function isGitAvailable(): bool
+    public function isGitAvailable(): bool
     {
         $output = [];
         $returnCode = 0;
@@ -163,7 +163,7 @@ class HealCommand extends Command
     /**
      * Check if the current directory is a git repository.
      */
-    protected function isGitRepository(): bool
+    public function isGitRepository(): bool
     {
         $output = [];
         $returnCode = 0;
