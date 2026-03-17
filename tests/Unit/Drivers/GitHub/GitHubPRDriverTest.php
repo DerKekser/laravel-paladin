@@ -1,359 +1,316 @@
 <?php
 
-namespace Kekser\LaravelPaladin\Tests\Unit\Drivers\GitHub;
-
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Kekser\LaravelPaladin\Drivers\GitHub\GitHubPRDriver;
 use Kekser\LaravelPaladin\Tests\Fixtures\Helpers\CreatesTestRepository;
-use Kekser\LaravelPaladin\Tests\TestCase;
-use RuntimeException;
-
-class GitHubPRDriverTest extends TestCase
-{
-    use CreatesTestRepository;
-
-    protected GitHubPRDriver $driver;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        config([
-            'paladin.providers.github.token' => 'test-token-123',
-            'paladin.providers.github.api_url' => 'https://api.github.com',
-        ]);
-
-        $this->driver = new GitHubPRDriver;
-
-        Log::spy();
-    }
-
-    /** @test */
-    public function it_checks_if_driver_is_configured()
-    {
-        config(['paladin.providers.github.token' => 'test-token']);
-        $driver = new GitHubPRDriver;
-
-        $this->assertTrue($driver->isConfigured());
-    }
-
-    /** @test */
-    public function it_returns_false_when_token_is_missing()
-    {
-        config(['paladin.providers.github.token' => null]);
-        $driver = new GitHubPRDriver;
-
-        $this->assertFalse($driver->isConfigured());
-    }
 
-    /** @test */
-    public function it_returns_false_when_token_is_empty()
-    {
-        config(['paladin.providers.github.token' => '']);
-        $driver = new GitHubPRDriver;
-
-        $this->assertFalse($driver->isConfigured());
-    }
-
-    /** @test */
-    public function it_throws_exception_when_not_configured()
-    {
-        config(['paladin.providers.github.token' => null]);
-        $driver = new GitHubPRDriver;
-
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('GitHub driver is not properly configured');
+uses(CreatesTestRepository::class);
 
-        $driver->createPullRequest('feature-branch', 'Test PR', 'Test body');
-    }
+beforeEach(function () {
+    config([
+        'paladin.providers.github.token' => 'test-token-123',
+        'paladin.providers.github.api_url' => 'https://api.github.com',
+    ]);
 
-    /** @test */
-    public function it_creates_pull_request_successfully()
-    {
-        $testRepo = $this->createTestRepository();
+    $this->driver = new GitHubPRDriver;
 
-        // Add a remote to the test repository
-        exec("cd {$testRepo} && git remote add origin git@github.com:owner/test-repo.git 2>&1");
+    Log::spy();
+});
 
-        Http::fake([
-            'api.github.com/repos/owner/test-repo/pulls' => Http::response([
-                'html_url' => 'https://github.com/owner/test-repo/pull/123',
-                'number' => 123,
-            ], 201),
-        ]);
+test('it checks if driver is configured', function () {
+    config(['paladin.providers.github.token' => 'test-token']);
+    $driver = new GitHubPRDriver;
 
-        // Change to test repo directory for git commands
-        $originalDir = getcwd();
-        chdir($testRepo);
+    expect($driver->isConfigured())->toBeTrue();
+});
 
-        $url = $this->driver->createPullRequest(
-            'feature-branch',
-            'Add new feature',
-            'This PR adds a new feature',
-            'main'
-        );
+test('it returns false when token is missing', function () {
+    config(['paladin.providers.github.token' => null]);
+    $driver = new GitHubPRDriver;
 
-        chdir($originalDir);
+    expect($driver->isConfigured())->toBeFalse();
+});
 
-        $this->assertEquals('https://github.com/owner/test-repo/pull/123', $url);
+test('it returns false when token is empty', function () {
+    config(['paladin.providers.github.token' => '']);
+    $driver = new GitHubPRDriver;
 
-        Http::assertSent(function ($request) {
-            return $request->url() === 'https://api.github.com/repos/owner/test-repo/pulls'
-                && $request['title'] === 'Add new feature'
-                && $request['body'] === 'This PR adds a new feature'
-                && $request['head'] === 'feature-branch'
-                && $request['base'] === 'main'
-                && $request->hasHeader('Authorization', 'Bearer test-token-123');
-        });
+    expect($driver->isConfigured())->toBeFalse();
+});
 
-        Log::shouldHaveReceived('info')
-            ->with('[Paladin] Creating GitHub pull request', \Mockery::any());
+test('it throws exception when not configured', function () {
+    config(['paladin.providers.github.token' => null]);
+    $driver = new GitHubPRDriver;
 
-        Log::shouldHaveReceived('info')
-            ->with('[Paladin] GitHub PR created successfully', ['url' => 'https://github.com/owner/test-repo/pull/123']);
+    $driver->createPullRequest('feature-branch', 'Test PR', 'Test body');
+})->throws(RuntimeException::class, 'GitHub driver is not properly configured');
 
-        // Cleanup
-        $this->cleanupTestRepository($testRepo);
-    }
+test('it creates pull request successfully', function () {
+    $testRepo = $this->createTestRepository();
 
-    /** @test */
-    public function it_uses_configured_api_url()
-    {
-        config(['paladin.providers.github.api_url' => 'https://api.github.enterprise.com']);
+    // Add a remote to the test repository
+    exec("cd {$testRepo} && git remote add origin git@github.com:owner/test-repo.git 2>&1");
 
-        $testRepo = $this->createTestRepository();
-        exec("cd {$testRepo} && git remote add origin https://github.com/owner/test-repo.git 2>&1");
+    Http::fake([
+        'api.github.com/repos/owner/test-repo/pulls' => Http::response([
+            'html_url' => 'https://github.com/owner/test-repo/pull/123',
+            'number' => 123,
+        ], 201),
+    ]);
 
-        Http::fake([
-            '*' => Http::response([
-                'html_url' => 'https://github.enterprise.com/owner/test-repo/pull/1',
-            ], 201),
-        ]);
+    // Change to test repo directory for git commands
+    $originalDir = getcwd();
+    chdir($testRepo);
 
-        $driver = new GitHubPRDriver;
+    $url = $this->driver->createPullRequest(
+        'feature-branch',
+        'Add new feature',
+        'This PR adds a new feature',
+        'main'
+    );
 
-        $originalDir = getcwd();
-        chdir($testRepo);
+    chdir($originalDir);
 
-        $driver->createPullRequest('test-branch', 'Test', 'Body');
+    expect($url)->toBe('https://github.com/owner/test-repo/pull/123');
 
-        chdir($originalDir);
+    Http::assertSent(function ($request) {
+        return $request->url() === 'https://api.github.com/repos/owner/test-repo/pulls'
+            && $request['title'] === 'Add new feature'
+            && $request['body'] === 'This PR adds a new feature'
+            && $request['head'] === 'feature-branch'
+            && $request['base'] === 'main'
+            && $request->hasHeader('Authorization', 'Bearer test-token-123');
+    });
 
-        Http::assertSent(function ($request) {
-            return str_starts_with($request->url(), 'https://api.github.enterprise.com');
-        });
+    Log::shouldHaveReceived('info')
+        ->with('[Paladin] Creating GitHub pull request', \Mockery::any());
 
-        $this->cleanupTestRepository($testRepo);
-    }
+    Log::shouldHaveReceived('info')
+        ->with('[Paladin] GitHub PR created successfully', ['url' => 'https://github.com/owner/test-repo/pull/123']);
 
-    /** @test */
-    public function it_returns_null_on_api_failure()
-    {
-        $testRepo = $this->createTestRepository();
-        exec("cd {$testRepo} && git remote add origin git@github.com:owner/test-repo.git 2>&1");
+    // Cleanup
+    $this->cleanupTestRepository($testRepo);
+});
 
-        Http::fake([
-            'api.github.com/repos/owner/test-repo/pulls' => Http::response([
-                'message' => 'Validation failed',
-            ], 422),
-        ]);
+test('it uses configured api url', function () {
+    config(['paladin.providers.github.api_url' => 'https://api.github.enterprise.com']);
 
-        $originalDir = getcwd();
-        chdir($testRepo);
+    $testRepo = $this->createTestRepository();
+    exec("cd {$testRepo} && git remote add origin https://github.com/owner/test-repo.git 2>&1");
 
-        $url = $this->driver->createPullRequest('feature', 'Title', 'Body');
+    Http::fake([
+        '*' => Http::response([
+            'html_url' => 'https://github.enterprise.com/owner/test-repo/pull/1',
+        ], 201),
+    ]);
 
-        chdir($originalDir);
+    $driver = new GitHubPRDriver;
 
-        $this->assertNull($url);
+    $originalDir = getcwd();
+    chdir($testRepo);
 
-        Log::shouldHaveReceived('error')
-            ->with('[Paladin] Failed to create GitHub PR', \Mockery::any());
+    $driver->createPullRequest('test-branch', 'Test', 'Body');
 
-        $this->cleanupTestRepository($testRepo);
-    }
+    chdir($originalDir);
 
-    /** @test */
-    public function it_handles_http_exceptions()
-    {
-        $testRepo = $this->createTestRepository();
-        exec("cd {$testRepo} && git remote add origin git@github.com:owner/test-repo.git 2>&1");
+    Http::assertSent(function ($request) {
+        return str_starts_with($request->url(), 'https://api.github.enterprise.com');
+    });
 
-        Http::fake(function () {
-            throw new \Exception('Network error');
-        });
+    $this->cleanupTestRepository($testRepo);
+});
 
-        $originalDir = getcwd();
-        chdir($testRepo);
+test('it returns null on api failure', function () {
+    $testRepo = $this->createTestRepository();
+    exec("cd {$testRepo} && git remote add origin git@github.com:owner/test-repo.git 2>&1");
 
-        $url = $this->driver->createPullRequest('feature', 'Title', 'Body');
+    Http::fake([
+        'api.github.com/repos/owner/test-repo/pulls' => Http::response([
+            'message' => 'Validation failed',
+        ], 422),
+    ]);
 
-        chdir($originalDir);
+    $originalDir = getcwd();
+    chdir($testRepo);
 
-        $this->assertNull($url);
+    $url = $this->driver->createPullRequest('feature', 'Title', 'Body');
 
-        Log::shouldHaveReceived('error')
-            ->with('[Paladin] GitHub PR creation error', ['error' => 'Network error']);
+    chdir($originalDir);
 
-        $this->cleanupTestRepository($testRepo);
-    }
+    expect($url)->toBeNull();
 
-    /** @test */
-    public function it_parses_ssh_repository_url()
-    {
-        $testRepo = $this->createTestRepository();
-        exec("cd {$testRepo} && git remote add origin git@github.com:laravel/framework.git 2>&1");
+    Log::shouldHaveReceived('error')
+        ->with('[Paladin] Failed to create GitHub PR', \Mockery::any());
 
-        Http::fake([
-            'api.github.com/repos/laravel/framework/pulls' => Http::response([
-                'html_url' => 'https://github.com/laravel/framework/pull/1',
-            ], 201),
-        ]);
+    $this->cleanupTestRepository($testRepo);
+});
 
-        $originalDir = getcwd();
-        chdir($testRepo);
+test('it handles http exceptions', function () {
+    $testRepo = $this->createTestRepository();
+    exec("cd {$testRepo} && git remote add origin git@github.com:owner/test-repo.git 2>&1");
 
-        $this->driver->createPullRequest('test', 'Test', 'Body');
+    Http::fake(function () {
+        throw new \Exception('Network error');
+    });
 
-        chdir($originalDir);
+    $originalDir = getcwd();
+    chdir($testRepo);
 
-        Http::assertSent(function ($request) {
-            return str_contains($request->url(), 'laravel/framework');
-        });
+    $url = $this->driver->createPullRequest('feature', 'Title', 'Body');
 
-        $this->cleanupTestRepository($testRepo);
-    }
+    chdir($originalDir);
 
-    /** @test */
-    public function it_parses_https_repository_url()
-    {
-        $testRepo = $this->createTestRepository();
-        exec("cd {$testRepo} && git remote add origin https://github.com/symfony/symfony.git 2>&1");
+    expect($url)->toBeNull();
 
-        Http::fake([
-            'api.github.com/repos/symfony/symfony/pulls' => Http::response([
-                'html_url' => 'https://github.com/symfony/symfony/pull/1',
-            ], 201),
-        ]);
+    Log::shouldHaveReceived('error')
+        ->with('[Paladin] GitHub PR creation error', ['error' => 'Network error']);
 
-        $originalDir = getcwd();
-        chdir($testRepo);
+    $this->cleanupTestRepository($testRepo);
+});
 
-        $this->driver->createPullRequest('test', 'Test', 'Body');
+test('it parses ssh repository url', function () {
+    $testRepo = $this->createTestRepository();
+    exec("cd {$testRepo} && git remote add origin git@github.com:laravel/framework.git 2>&1");
 
-        chdir($originalDir);
+    Http::fake([
+        'api.github.com/repos/laravel/framework/pulls' => Http::response([
+            'html_url' => 'https://github.com/laravel/framework/pull/1',
+        ], 201),
+    ]);
 
-        Http::assertSent(function ($request) {
-            return str_contains($request->url(), 'symfony/symfony');
-        });
+    $originalDir = getcwd();
+    chdir($testRepo);
 
-        $this->cleanupTestRepository($testRepo);
-    }
+    $this->driver->createPullRequest('test', 'Test', 'Body');
 
-    /** @test */
-    public function it_removes_git_extension_from_repository()
-    {
-        $testRepo = $this->createTestRepository();
-        exec("cd {$testRepo} && git remote add origin https://github.com/owner/repo.git 2>&1");
+    chdir($originalDir);
 
-        Http::fake();
+    Http::assertSent(function ($request) {
+        return str_contains($request->url(), 'laravel/framework');
+    });
 
-        $originalDir = getcwd();
-        chdir($testRepo);
+    $this->cleanupTestRepository($testRepo);
+});
 
-        $this->driver->createPullRequest('test', 'Test', 'Body');
+test('it parses https repository url', function () {
+    $testRepo = $this->createTestRepository();
+    exec("cd {$testRepo} && git remote add origin https://github.com/symfony/symfony.git 2>&1");
 
-        chdir($originalDir);
+    Http::fake([
+        'api.github.com/repos/symfony/symfony/pulls' => Http::response([
+            'html_url' => 'https://github.com/symfony/symfony/pull/1',
+        ], 201),
+    ]);
 
-        // Should use "owner/repo" not "owner/repo.git"
-        Http::assertSent(function ($request) {
-            $url = $request->url();
+    $originalDir = getcwd();
+    chdir($testRepo);
 
-            // The URL should contain "repos/owner/repo/pulls" without the .git extension
-            return str_contains($url, '/repos/owner/repo/pulls')
-                && ! str_contains($url, 'repo.git');
-        });
+    $this->driver->createPullRequest('test', 'Test', 'Body');
 
-        $this->cleanupTestRepository($testRepo);
-    }
+    chdir($originalDir);
 
-    /** @test */
-    public function it_returns_null_when_remote_url_not_found()
-    {
-        $testRepo = $this->createTestRepository();
-        // Don't add any remote
+    Http::assertSent(function ($request) {
+        return str_contains($request->url(), 'symfony/symfony');
+    });
 
-        $originalDir = getcwd();
-        chdir($testRepo);
+    $this->cleanupTestRepository($testRepo);
+});
 
-        Http::fake([
-            '*' => Http::response(['html_url' => 'test'], 201),
-        ]);
+test('it removes git extension from repository', function () {
+    $testRepo = $this->createTestRepository();
+    exec("cd {$testRepo} && git remote add origin https://github.com/owner/repo.git 2>&1");
 
-        $url = $this->driver->createPullRequest('test', 'Test', 'Body');
+    Http::fake();
 
-        chdir($originalDir);
+    $originalDir = getcwd();
+    chdir($testRepo);
 
-        $this->assertNull($url);
+    $this->driver->createPullRequest('test', 'Test', 'Body');
 
-        Log::shouldHaveReceived('error')
-            ->with('[Paladin] GitHub PR creation error', \Mockery::any());
+    chdir($originalDir);
 
-        $this->cleanupTestRepository($testRepo);
-    }
+    // Should use "owner/repo" not "owner/repo.git"
+    Http::assertSent(function ($request) {
+        $url = $request->url();
 
-    /** @test */
-    public function it_returns_null_for_non_github_repository()
-    {
-        $testRepo = $this->createTestRepository();
-        exec("cd {$testRepo} && git remote add origin git@gitlab.com:owner/repo.git 2>&1");
+        // The URL should contain "repos/owner/repo/pulls" without the .git extension
+        return str_contains($url, '/repos/owner/repo/pulls')
+            && ! str_contains($url, 'repo.git');
+    });
 
-        Http::fake([
-            '*' => Http::response(['html_url' => 'test'], 201),
-        ]);
+    $this->cleanupTestRepository($testRepo);
+});
 
-        $originalDir = getcwd();
-        chdir($testRepo);
+test('it returns null when remote url not found', function () {
+    $testRepo = $this->createTestRepository();
+    // Don't add any remote
 
-        $url = $this->driver->createPullRequest('test', 'Test', 'Body');
+    $originalDir = getcwd();
+    chdir($testRepo);
 
-        chdir($originalDir);
+    Http::fake([
+        '*' => Http::response(['html_url' => 'test'], 201),
+    ]);
 
-        $this->assertNull($url);
+    $url = $this->driver->createPullRequest('test', 'Test', 'Body');
 
-        Log::shouldHaveReceived('error')
-            ->with('[Paladin] GitHub PR creation error', \Mockery::any());
+    chdir($originalDir);
 
-        $this->cleanupTestRepository($testRepo);
-    }
+    expect($url)->toBeNull();
 
-    /** @test */
-    public function it_caches_repository_after_first_parse()
-    {
-        $testRepo = $this->createTestRepository();
-        exec("cd {$testRepo} && git remote add origin git@github.com:owner/repo.git 2>&1");
+    Log::shouldHaveReceived('error')
+        ->with('[Paladin] GitHub PR creation error', \Mockery::any());
 
-        Http::fake([
-            'api.github.com/repos/owner/repo/pulls' => Http::response([
-                'html_url' => 'https://github.com/owner/repo/pull/1',
-            ], 201),
-        ]);
+    $this->cleanupTestRepository($testRepo);
+});
 
-        $originalDir = getcwd();
-        chdir($testRepo);
+test('it returns null for non github repository', function () {
+    $testRepo = $this->createTestRepository();
+    exec("cd {$testRepo} && git remote add origin git@gitlab.com:owner/repo.git 2>&1");
 
-        // First call - parses repository
-        $this->driver->createPullRequest('test1', 'Test 1', 'Body');
+    Http::fake([
+        '*' => Http::response(['html_url' => 'test'], 201),
+    ]);
 
-        // Second call - should use cached repository
-        $this->driver->createPullRequest('test2', 'Test 2', 'Body');
+    $originalDir = getcwd();
+    chdir($testRepo);
 
-        chdir($originalDir);
+    $url = $this->driver->createPullRequest('test', 'Test', 'Body');
 
-        // Should have made 2 API calls
-        Http::assertSentCount(2);
+    chdir($originalDir);
 
-        $this->cleanupTestRepository($testRepo);
-    }
-}
+    expect($url)->toBeNull();
+
+    Log::shouldHaveReceived('error')
+        ->with('[Paladin] GitHub PR creation error', \Mockery::any());
+
+    $this->cleanupTestRepository($testRepo);
+});
+
+test('it caches repository after first parse', function () {
+    $testRepo = $this->createTestRepository();
+    exec("cd {$testRepo} && git remote add origin git@github.com:owner/repo.git 2>&1");
+
+    Http::fake([
+        'api.github.com/repos/owner/repo/pulls' => Http::response([
+            'html_url' => 'https://github.com/owner/repo/pull/1',
+        ], 201),
+    ]);
+
+    $originalDir = getcwd();
+    chdir($testRepo);
+
+    // First call - parses repository
+    $this->driver->createPullRequest('test1', 'Test 1', 'Body');
+
+    // Second call - should use cached repository
+    $this->driver->createPullRequest('test2', 'Test 2', 'Body');
+
+    chdir($originalDir);
+
+    // Should have made 2 API calls
+    Http::assertSentCount(2);
+
+    $this->cleanupTestRepository($testRepo);
+});
