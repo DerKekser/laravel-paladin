@@ -15,7 +15,7 @@ class StatusCommand extends Command
     protected $signature = 'paladin:status
                             {--status= : Filter by status (pending, in_progress, fixed, failed)}
                             {--limit=10 : Number of recent attempts to display}
-                            {--verbose : Show detailed information including stack traces}';
+                            {--details : Show detailed information including stack traces}';
 
     /**
      * The console command description.
@@ -35,7 +35,7 @@ class StatusCommand extends Command
         // Get filter options
         $statusFilter = $this->option('status');
         $limit = (int) $this->option('limit');
-        $verbose = $this->option('verbose');
+        $verbose = $this->option('details');
 
         // Validate status filter
         if ($statusFilter && ! in_array($statusFilter, ['pending', 'in_progress', 'fixed', 'failed'])) {

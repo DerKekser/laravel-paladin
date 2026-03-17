@@ -206,6 +206,33 @@ test('it can chain scopes', function () {
     expect($attempts->first()->status)->toBe('fixed');
 });
 
+test('it can mark attempt as skipped', function () {
+    $attempt = HealingAttempt::create([
+        'issue_id' => 'test-105',
+        'issue_type' => 'runtime_error',
+        'severity' => 'high',
+        'message' => 'Test message',
+        'status' => 'pending',
+    ]);
+
+    $reason = 'Already fixed in another branch';
+    $attempt->markAsSkipped($reason);
+
+    expect($attempt->fresh()->status)->toBe('skipped');
+    expect($attempt->fresh()->error_message)->toBe($reason);
+});
+
+test('it can filter by skipped status', function () {
+    HealingAttempt::create(['issue_id' => 'test-1', 'issue_type' => 'error', 'severity' => 'high', 'message' => 'Test', 'status' => 'skipped']);
+    HealingAttempt::create(['issue_id' => 'test-2', 'issue_type' => 'error', 'severity' => 'high', 'message' => 'Test', 'status' => 'fixed']);
+    HealingAttempt::create(['issue_id' => 'test-3', 'issue_type' => 'error', 'severity' => 'high', 'message' => 'Test', 'status' => 'skipped']);
+
+    $skipped = HealingAttempt::skipped()->get();
+
+    expect($skipped)->toHaveCount(2);
+    expect($skipped->every(fn ($a) => $a->status === 'skipped'))->toBeTrue();
+});
+
 test('it has timestamps', function () {
     $attempt = HealingAttempt::create([
         'issue_id' => 'test-timestamps',
