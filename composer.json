@@ -13,7 +13,7 @@
     "license": "MIT",
     "authors": [
         {
-            "name": "Kekser",
+            "name": "DerKekser",
             "role": "Developer"
         }
     ],
@@ -29,9 +29,9 @@
         "spatie/laravel-package-tools": "^1.16"
     },
     "require-dev": {
+        "laravel/pint": "^1.0",
         "orchestra/testbench": "^10.0|^9.0",
-        "phpunit/phpunit": "^11.0",
-        "laravel/pint": "^1.0"
+        "pestphp/pest": "^4.4"
     },
     "autoload": {
         "psr-4": {
@@ -44,7 +44,7 @@
         }
     },
     "scripts": {
-        "test": "vendor/bin/phpunit",
+        "test": "vendor/bin/pest",
         "format": "vendor/bin/pint"
     },
     "extra": {
@@ -55,7 +55,10 @@
         }
     },
     "config": {
-        "sort-packages": true
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
     },
     "minimum-stability": "dev",
     "prefer-stable": true

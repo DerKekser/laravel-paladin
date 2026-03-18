@@ -8,9 +8,11 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Kekser\LaravelPaladin\Ai\AgentFactory;
+use Kekser\LaravelPaladin\Ai\EvaluatorFactory;
+use Kekser\LaravelPaladin\Contracts\IssueEvaluator;
 use Kekser\LaravelPaladin\Models\HealingAttempt;
 use Kekser\LaravelPaladin\Services\FileBoundaryValidator;
+use Kekser\LaravelPaladin\Services\GitService;
 use Kekser\LaravelPaladin\Services\LogScanner;
 use Kekser\LaravelPaladin\Services\OpenCodeInstaller;
 use Kekser\LaravelPaladin\Services\OpenCodeRunner;
@@ -24,6 +26,8 @@ class ProcessSelfHealingJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected array $specificIssues;
+
+    protected ?IssueEvaluator $evaluator = null;
 
     /**
      * Create a new job instance.
@@ -124,9 +128,8 @@ class ProcessSelfHealingJob implements ShouldQueue
     {
         Log::info('[Paladin] Analyzing issues with AI');
 
-        $factory = app(AgentFactory::class);
-        $analyzer = $factory->createIssueAnalyzer();
-        $issues = $analyzer->analyze($logEntries);
+        $evaluator = $this->getEvaluator();
+        $issues = $evaluator->analyzeIssues($logEntries);
 
         // Sort by severity
         $severityOrder = ['critical' => 1, 'high' => 2, 'medium' => 3, 'low' => 4];
@@ -321,9 +324,8 @@ class ProcessSelfHealingJob implements ShouldQueue
                 $testFailureOutput = $previousAttempt?->test_output;
             }
 
-            $factory = app(AgentFactory::class);
-            $promptGenerator = $factory->createPromptGenerator($issue, $testFailureOutput);
-            $prompt = $promptGenerator->generate();
+            $evaluator = $this->getEvaluator();
+            $prompt = $evaluator->generatePrompt($issue, $testFailureOutput);
 
             $healingAttempt->update(['opencode_prompt' => $prompt]);
 
@@ -398,21 +400,6 @@ class ProcessSelfHealingJob implements ShouldQueue
     }
 
     /**
-     * Check if a remote repository is configured.
-     */
-    protected function hasRemote(string $worktreePath): bool
-    {
-        $command = sprintf(
-            'cd %s && git remote get-url origin 2>&1',
-            escapeshellarg($worktreePath)
-        );
-
-        exec($command, $output, $returnCode);
-
-        return $returnCode === 0;
-    }
-
-    /**
      * Commit changes and create a pull request.
      */
     protected function commitAndCreatePR(
@@ -422,65 +409,36 @@ class ProcessSelfHealingJob implements ShouldQueue
         int $attemptNumber,
         int $maxAttempts
     ): bool {
+        $git = app(GitService::class);
+
         // Create branch name
         $branchPrefix = config('paladin.git.branch_prefix', 'paladin/fix');
         $branchName = "{$branchPrefix}-".substr($issue['id'], 0, 8);
 
-        // Create and checkout branch - properly escape all arguments
-        $commands = [
-            sprintf('cd %s', escapeshellarg($worktreePath)),
-            sprintf('git checkout -b %s', escapeshellarg($branchName)),
-            'git add .',
-        ];
-
-        exec(implode(' && ', $commands), $output, $returnCode);
-
-        if ($returnCode !== 0) {
-            Log::error('[Paladin] Failed to create branch', ['output' => implode("\n", $output)]);
-
+        // Create and checkout branch
+        if (! $git->createBranch($worktreePath, $branchName)) {
             return false;
         }
 
-        // Generate commit message
+        // Generate commit message and commit
         $commitMessage = $this->generateCommitMessage($issue, $attemptNumber, $maxAttempts);
-
-        // Commit
-        $commitCommand = sprintf(
-            'cd %s && git commit -m %s',
-            escapeshellarg($worktreePath),
-            escapeshellarg($commitMessage)
-        );
-
-        exec($commitCommand, $output, $returnCode);
-
-        if ($returnCode !== 0) {
-            Log::error('[Paladin] Failed to commit changes', ['output' => implode("\n", $output)]);
-
+        if (! $git->commit($worktreePath, $commitMessage)) {
             return false;
         }
 
         $healingAttempt->update(['branch_name' => $branchName]);
 
         // Check if remote exists
-        $hasRemote = $this->hasRemote($worktreePath);
+        $hasRemote = $git->hasRemote($worktreePath);
 
         // Push branch if remote is configured
         if ($hasRemote) {
-            $pushCommand = sprintf(
-                'cd %s && git push origin %s',
-                escapeshellarg($worktreePath),
-                escapeshellarg($branchName)
-            );
-            exec($pushCommand, $pushOutput, $pushReturnCode);
-
-            if ($pushReturnCode !== 0) {
-                Log::error('[Paladin] Failed to push branch', ['output' => implode("\n", $pushOutput)]);
-
+            if (! $git->push($worktreePath, $branchName)) {
                 return false;
             }
 
             // Create PR only if push succeeded
-            $prManager = new PullRequestManager;
+            $prManager = app(PullRequestManager::class);
             $prTitle = $this->generatePRTitle($issue);
             $prBody = $this->generatePRBody($issue, $attemptNumber, $maxAttempts);
 
@@ -552,5 +510,17 @@ class ProcessSelfHealingJob implements ShouldQueue
             '{attempt_number}' => $attemptNumber,
             '{max_attempts}' => $maxAttempts,
         ]);
+    }
+
+    /**
+     * Get the configured issue evaluator instance.
+     */
+    protected function getEvaluator(): IssueEvaluator
+    {
+        if ($this->evaluator === null) {
+            $this->evaluator = app(EvaluatorFactory::class)->create();
+        }
+
+        return $this->evaluator;
     }
 }

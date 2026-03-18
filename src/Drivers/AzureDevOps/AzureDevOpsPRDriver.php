@@ -10,9 +10,13 @@ use RuntimeException;
 class AzureDevOpsPRDriver implements PullRequestDriver
 {
     protected ?string $token;
+
     protected ?string $organization;
+
     protected ?string $project;
+
     protected string $apiUrl;
+
     protected ?string $repository = null;
 
     public function __construct()
@@ -32,7 +36,7 @@ class AzureDevOpsPRDriver implements PullRequestDriver
         string $body,
         string $baseBranch = 'main'
     ): ?string {
-        if (!$this->isConfigured()) {
+        if (! $this->isConfigured()) {
             throw new RuntimeException('Azure DevOps driver is not properly configured');
         }
 
@@ -60,7 +64,7 @@ class AzureDevOpsPRDriver implements PullRequestDriver
                     'description' => $body,
                 ]);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 Log::error('[Paladin] Failed to create Azure DevOps PR', [
                     'status' => $response->status(),
                     'body' => $response->body(),
@@ -91,9 +95,9 @@ class AzureDevOpsPRDriver implements PullRequestDriver
      */
     public function isConfigured(): bool
     {
-        return !empty($this->token) 
-            && !empty($this->organization) 
-            && !empty($this->project);
+        return ! empty($this->token)
+            && ! empty($this->organization)
+            && ! empty($this->project);
     }
 
     /**
@@ -119,14 +123,16 @@ class AzureDevOpsPRDriver implements PullRequestDriver
         // SSH: git@ssh.dev.azure.com:v3/organization/project/repository
         if (preg_match('/_git\/([^\/\?]+)/', $remoteUrl, $matches)) {
             $this->repository = $matches[1];
+
             return $this->repository;
         }
 
         if (preg_match('/v3\/[^\/]+\/[^\/]+\/([^\/]+)/', $remoteUrl, $matches)) {
             $this->repository = $matches[1];
+
             return $this->repository;
         }
 
-        throw new RuntimeException('Could not parse repository from git remote URL: ' . $remoteUrl);
+        throw new RuntimeException('Could not parse repository from git remote URL: '.$remoteUrl);
     }
 }

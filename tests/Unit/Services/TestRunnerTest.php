@@ -1,249 +1,201 @@
 <?php
 
-namespace Kekser\LaravelPaladin\Tests\Unit\Services;
-
 use Illuminate\Support\Facades\Log;
 use Kekser\LaravelPaladin\Services\TestRunner;
-use Kekser\LaravelPaladin\Tests\TestCase;
-use RuntimeException;
 
-class TestRunnerTest extends TestCase
-{
-    protected TestRunner $runner;
+beforeEach(function () {
+    $this->runner = new TestRunner;
+    $this->tempDir = $this->createTempDirectory('test-runner-');
 
-    protected string $tempDir;
+    Log::spy();
+});
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        $this->runner = new TestRunner;
-        $this->tempDir = $this->createTempDirectory('test-runner-');
-
-        Log::spy();
+afterEach(function () {
+    if (isset($this->tempDir) && is_dir($this->tempDir)) {
+        $this->deleteDirectory($this->tempDir);
     }
+});
 
-    protected function tearDown(): void
-    {
-        if (isset($this->tempDir) && is_dir($this->tempDir)) {
-            $this->deleteDirectory($this->tempDir);
-        }
+test('it throws exception for nonexistent directory', function () {
+    $this->runner->run('/nonexistent/directory');
+})->throws(RuntimeException::class, 'Working directory does not exist');
 
-        parent::tearDown();
-    }
+test('it can set custom test command', function () {
+    $result = $this->runner->setCommand('vendor/bin/phpunit');
 
-    /** @test */
-    public function it_throws_exception_for_nonexistent_directory()
-    {
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Working directory does not exist');
+    expect($result)->toBeInstanceOf(TestRunner::class);
+});
 
-        $this->runner->run('/nonexistent/directory');
-    }
+test('it uses configured test command', function () {
+    config(['paladin.testing.command' => 'php artisan test']);
 
-    /** @test */
-    public function it_can_set_custom_test_command()
-    {
-        $result = $this->runner->setCommand('vendor/bin/phpunit');
+    $runner = new TestRunner;
 
-        $this->assertInstanceOf(TestRunner::class, $result);
-    }
+    // We can't directly access the private property, but we can verify via execution
+    expect($runner)->toBeInstanceOf(TestRunner::class);
+});
 
-    /** @test */
-    public function it_uses_configured_test_command()
-    {
-        config(['paladin.testing.command' => 'php artisan test']);
+test('it uses configured timeout', function () {
+    config(['paladin.testing.timeout' => 600]);
 
-        $runner = new TestRunner;
+    $runner = new TestRunner;
 
-        // We can't directly access the private property, but we can verify via execution
-        $this->assertInstanceOf(TestRunner::class, $runner);
-    }
+    expect($runner)->toBeInstanceOf(TestRunner::class);
+});
 
-    /** @test */
-    public function it_uses_configured_timeout()
-    {
-        config(['paladin.testing.timeout' => 600]);
+test('it runs command successfully', function () {
+    // Create a simple script that exits with 0
+    $scriptPath = $this->tempDir.'/test.sh';
+    file_put_contents($scriptPath, "#!/bin/bash\necho 'Tests passed'\nexit 0");
+    chmod($scriptPath, 0755);
 
-        $runner = new TestRunner;
+    $runner = new TestRunner;
+    $runner->setCommand('bash test.sh');
 
-        $this->assertInstanceOf(TestRunner::class, $runner);
-    }
+    $result = $runner->run($this->tempDir);
 
-    /** @test */
-    public function it_runs_command_successfully()
-    {
-        // Create a simple script that exits with 0
-        $scriptPath = $this->tempDir.'/test.sh';
-        file_put_contents($scriptPath, "#!/bin/bash\necho 'Tests passed'\nexit 0");
-        chmod($scriptPath, 0755);
+    expect($result['passed'])->toBeTrue();
+    expect($result['timed_out'])->toBeFalse();
+    expect($result['return_code'])->toBe(0);
+    expect($result['output'])->toContain('Tests passed');
+});
 
-        $runner = new TestRunner;
-        $runner->setCommand('bash test.sh');
+test('it detects test failures', function () {
+    // Create a script that exits with non-zero code
+    $scriptPath = $this->tempDir.'/test.sh';
+    file_put_contents($scriptPath, "#!/bin/bash\necho 'Tests failed'\nexit 1");
+    chmod($scriptPath, 0755);
 
-        $result = $runner->run($this->tempDir);
+    $runner = new TestRunner;
+    $runner->setCommand('bash test.sh');
 
-        $this->assertTrue($result['passed']);
-        $this->assertFalse($result['timed_out']);
-        $this->assertEquals(0, $result['return_code']);
-        $this->assertStringContainsString('Tests passed', $result['output']);
-    }
+    $result = $runner->run($this->tempDir);
 
-    /** @test */
-    public function it_detects_test_failures()
-    {
-        // Create a script that exits with non-zero code
-        $scriptPath = $this->tempDir.'/test.sh';
-        file_put_contents($scriptPath, "#!/bin/bash\necho 'Tests failed'\nexit 1");
-        chmod($scriptPath, 0755);
+    expect($result['passed'])->toBeFalse();
+    expect($result['timed_out'])->toBeFalse();
+    expect($result['return_code'])->toBe(1);
+    expect($result['output'])->toContain('Tests failed');
+});
 
-        $runner = new TestRunner;
-        $runner->setCommand('bash test.sh');
+test('it captures stdout and stderr', function () {
+    // Create a script that outputs to both stdout and stderr
+    $scriptPath = $this->tempDir.'/test.sh';
+    file_put_contents($scriptPath, "#!/bin/bash\necho 'stdout message'\necho 'stderr message' >&2\nexit 0");
+    chmod($scriptPath, 0755);
 
-        $result = $runner->run($this->tempDir);
+    $runner = new TestRunner;
+    $runner->setCommand('bash test.sh');
 
-        $this->assertFalse($result['passed']);
-        $this->assertFalse($result['timed_out']);
-        $this->assertEquals(1, $result['return_code']);
-        $this->assertStringContainsString('Tests failed', $result['output']);
-    }
+    $result = $runner->run($this->tempDir);
 
-    /** @test */
-    public function it_captures_stdout_and_stderr()
-    {
-        // Create a script that outputs to both stdout and stderr
-        $scriptPath = $this->tempDir.'/test.sh';
-        file_put_contents($scriptPath, "#!/bin/bash\necho 'stdout message'\necho 'stderr message' >&2\nexit 0");
-        chmod($scriptPath, 0755);
+    expect($result['output'])->toContain('stdout message');
+    expect($result['output'])->toContain('stderr message');
+});
 
-        $runner = new TestRunner;
-        $runner->setCommand('bash test.sh');
+test('it handles timeout', function () {
+    config(['paladin.testing.timeout' => 1]);
 
-        $result = $runner->run($this->tempDir);
+    // Create a script that sleeps longer than timeout
+    $scriptPath = $this->tempDir.'/test.sh';
+    file_put_contents($scriptPath, "#!/bin/bash\nsleep 5\necho 'Should not see this'\nexit 0");
+    chmod($scriptPath, 0755);
 
-        $this->assertStringContainsString('stdout message', $result['output']);
-        $this->assertStringContainsString('stderr message', $result['output']);
-    }
+    $runner = new TestRunner;
+    $runner->setCommand('bash test.sh');
 
-    /** @test */
-    public function it_handles_timeout()
-    {
-        config(['paladin.testing.timeout' => 1]);
+    $result = $runner->run($this->tempDir);
 
-        // Create a script that sleeps longer than timeout
-        $scriptPath = $this->tempDir.'/test.sh';
-        file_put_contents($scriptPath, "#!/bin/bash\nsleep 5\necho 'Should not see this'\nexit 0");
-        chmod($scriptPath, 0755);
+    expect($result['passed'])->toBeFalse();
+    expect($result['timed_out'])->toBeTrue();
+    expect($result['output'])->toContain('timed out');
+});
 
-        $runner = new TestRunner;
-        $runner->setCommand('bash test.sh');
+test('it extracts failed tests from output', function () {
+    $output = "FAILED Tests\\Feature\\ExampleTest::test_example\n".
+              "ERRORED Tests\\Unit\\AnotherTest::test_something\n".
+              '5 tests, 2 failed';
 
-        $result = $runner->run($this->tempDir);
+    $scriptPath = $this->tempDir.'/test.sh';
+    file_put_contents($scriptPath, "#!/bin/bash\necho '".addslashes($output)."'\nexit 1");
+    chmod($scriptPath, 0755);
 
-        $this->assertFalse($result['passed']);
-        $this->assertTrue($result['timed_out']);
-        $this->assertStringContainsString('timed out', $result['output']);
-    }
+    $runner = new TestRunner;
+    $runner->setCommand('bash test.sh');
 
-    /** @test */
-    public function it_extracts_failed_tests_from_output()
-    {
-        $output = "FAILED Tests\\Feature\\ExampleTest::test_example\n".
-                  "ERRORED Tests\\Unit\\AnotherTest::test_something\n".
-                  '5 tests, 2 failed';
+    $result = $runner->run($this->tempDir);
 
-        $scriptPath = $this->tempDir.'/test.sh';
-        file_put_contents($scriptPath, "#!/bin/bash\necho '".addslashes($output)."'\nexit 1");
-        chmod($scriptPath, 0755);
+    expect($result)->toHaveKey('failed_tests');
+    expect($result['failed_tests'])->not->toBeEmpty();
+});
 
-        $runner = new TestRunner;
-        $runner->setCommand('bash test.sh');
+test('it returns empty failed tests on success', function () {
+    $scriptPath = $this->tempDir.'/test.sh';
+    file_put_contents($scriptPath, "#!/bin/bash\necho 'All tests passed'\nexit 0");
+    chmod($scriptPath, 0755);
 
-        $result = $runner->run($this->tempDir);
+    $runner = new TestRunner;
+    $runner->setCommand('bash test.sh');
 
-        $this->assertArrayHasKey('failed_tests', $result);
-        $this->assertNotEmpty($result['failed_tests']);
-    }
+    $result = $runner->run($this->tempDir);
 
-    /** @test */
-    public function it_returns_empty_failed_tests_on_success()
-    {
-        $scriptPath = $this->tempDir.'/test.sh';
-        file_put_contents($scriptPath, "#!/bin/bash\necho 'All tests passed'\nexit 0");
-        chmod($scriptPath, 0755);
+    expect($result)->toHaveKey('failed_tests');
+    expect($result['failed_tests'])->toBeEmpty();
+});
 
-        $runner = new TestRunner;
-        $runner->setCommand('bash test.sh');
+test('it logs test execution start', function () {
+    $scriptPath = $this->tempDir.'/test.sh';
+    file_put_contents($scriptPath, "#!/bin/bash\nexit 0");
+    chmod($scriptPath, 0755);
 
-        $result = $runner->run($this->tempDir);
+    $runner = new TestRunner;
+    $runner->setCommand('bash test.sh');
 
-        $this->assertArrayHasKey('failed_tests', $result);
-        $this->assertEmpty($result['failed_tests']);
-    }
+    $runner->run($this->tempDir);
 
-    /** @test */
-    public function it_logs_test_execution_start()
-    {
-        $scriptPath = $this->tempDir.'/test.sh';
-        file_put_contents($scriptPath, "#!/bin/bash\nexit 0");
-        chmod($scriptPath, 0755);
+    Log::shouldHaveReceived('info')
+        ->with('[Paladin] Running tests', Mockery::any());
+});
 
-        $runner = new TestRunner;
-        $runner->setCommand('bash test.sh');
+test('it logs test execution completion', function () {
+    $scriptPath = $this->tempDir.'/test.sh';
+    file_put_contents($scriptPath, "#!/bin/bash\nexit 0");
+    chmod($scriptPath, 0755);
 
-        $runner->run($this->tempDir);
+    $runner = new TestRunner;
+    $runner->setCommand('bash test.sh');
 
-        Log::shouldHaveReceived('info')
-            ->with('[Paladin] Running tests', \Mockery::any());
-    }
+    $runner->run($this->tempDir);
 
-    /** @test */
-    public function it_logs_test_execution_completion()
-    {
-        $scriptPath = $this->tempDir.'/test.sh';
-        file_put_contents($scriptPath, "#!/bin/bash\nexit 0");
-        chmod($scriptPath, 0755);
+    Log::shouldHaveReceived('info')
+        ->with('[Paladin] Test execution completed', Mockery::any());
+});
 
-        $runner = new TestRunner;
-        $runner->setCommand('bash test.sh');
+test('it includes return code in result', function () {
+    $scriptPath = $this->tempDir.'/test.sh';
+    file_put_contents($scriptPath, "#!/bin/bash\nexit 42");
+    chmod($scriptPath, 0755);
 
-        $runner->run($this->tempDir);
+    $runner = new TestRunner;
+    $runner->setCommand('bash test.sh');
 
-        Log::shouldHaveReceived('info')
-            ->with('[Paladin] Test execution completed', \Mockery::any());
-    }
+    $result = $runner->run($this->tempDir);
 
-    /** @test */
-    public function it_includes_return_code_in_result()
-    {
-        $scriptPath = $this->tempDir.'/test.sh';
-        file_put_contents($scriptPath, "#!/bin/bash\nexit 42");
-        chmod($scriptPath, 0755);
+    expect($result['return_code'])->toBe(42);
+});
 
-        $runner = new TestRunner;
-        $runner->setCommand('bash test.sh');
+test('it returns all expected keys', function () {
+    $scriptPath = $this->tempDir.'/test.sh';
+    file_put_contents($scriptPath, "#!/bin/bash\nexit 0");
+    chmod($scriptPath, 0755);
 
-        $result = $runner->run($this->tempDir);
+    $runner = new TestRunner;
+    $runner->setCommand('bash test.sh');
 
-        $this->assertEquals(42, $result['return_code']);
-    }
+    $result = $runner->run($this->tempDir);
 
-    /** @test */
-    public function it_returns_all_expected_keys()
-    {
-        $scriptPath = $this->tempDir.'/test.sh';
-        file_put_contents($scriptPath, "#!/bin/bash\nexit 0");
-        chmod($scriptPath, 0755);
-
-        $runner = new TestRunner;
-        $runner->setCommand('bash test.sh');
-
-        $result = $runner->run($this->tempDir);
-
-        $this->assertArrayHasKey('passed', $result);
-        $this->assertArrayHasKey('timed_out', $result);
-        $this->assertArrayHasKey('return_code', $result);
-        $this->assertArrayHasKey('output', $result);
-        $this->assertArrayHasKey('failed_tests', $result);
-    }
-}
+    expect($result)->toHaveKey('passed');
+    expect($result)->toHaveKey('timed_out');
+    expect($result)->toHaveKey('return_code');
+    expect($result)->toHaveKey('output');
+    expect($result)->toHaveKey('failed_tests');
+});

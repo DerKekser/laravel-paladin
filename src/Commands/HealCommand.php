@@ -3,7 +3,7 @@
 namespace Kekser\LaravelPaladin\Commands;
 
 use Illuminate\Console\Command;
-use Kekser\LaravelPaladin\Ai\AgentFactory;
+use Kekser\LaravelPaladin\Ai\EvaluatorFactory;
 use Kekser\LaravelPaladin\Jobs\ProcessSelfHealingJob;
 
 class HealCommand extends Command
@@ -83,10 +83,13 @@ class HealCommand extends Command
     {
         $errors = [];
 
-        // Validate AI configuration by attempting to instantiate factory
-        // This will check provider support and required env variables
+        // Validate AI evaluator configuration
         try {
-            app(AgentFactory::class);
+            $evaluator = app(EvaluatorFactory::class)->create();
+            $evaluatorErrors = $evaluator->getConfigurationErrors();
+            foreach ($evaluatorErrors as $error) {
+                $errors[] = $error;
+            }
         } catch (\Exception $e) {
             $errors[] = $e->getMessage();
         }
@@ -148,7 +151,7 @@ class HealCommand extends Command
     /**
      * Check if git is available on the system.
      */
-    protected function isGitAvailable(): bool
+    public function isGitAvailable(): bool
     {
         $output = [];
         $returnCode = 0;
@@ -160,7 +163,7 @@ class HealCommand extends Command
     /**
      * Check if the current directory is a git repository.
      */
-    protected function isGitRepository(): bool
+    public function isGitRepository(): bool
     {
         $output = [];
         $returnCode = 0;

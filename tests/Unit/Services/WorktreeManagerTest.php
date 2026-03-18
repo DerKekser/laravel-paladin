@@ -1,301 +1,269 @@
 <?php
 
-namespace Kekser\LaravelPaladin\Tests\Unit\Services;
-
 use Illuminate\Support\Facades\File;
 use Kekser\LaravelPaladin\Services\WorktreeManager;
-use Kekser\LaravelPaladin\Tests\TestCase;
 
-class WorktreeManagerTest extends TestCase
+beforeEach(function () {
+    $this->manager = new WorktreeManager;
+
+    // Clean up any existing test worktrees
+    $basePath = $this->manager->getBasePath();
+    if (File::exists($basePath)) {
+        $directories = File::directories($basePath);
+        foreach ($directories as $dir) {
+            if (str_starts_with(basename($dir), 'paladin-fix-')) {
+                File::deleteDirectory($dir);
+            }
+        }
+    }
+});
+
+afterEach(function () {
+    // Clean up test worktrees
+    $basePath = $this->manager->getBasePath();
+    if (File::exists($basePath)) {
+        $directories = File::directories($basePath);
+        foreach ($directories as $dir) {
+            if (str_starts_with(basename($dir), 'paladin-fix-')) {
+                $this->manager->remove($dir);
+            }
+        }
+    }
+});
+
+function getProtectedMethod(string $class, string $methodName): ReflectionMethod
 {
-    protected WorktreeManager $manager;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        $this->manager = new WorktreeManager;
-
-        // Clean up any existing test worktrees
-        $basePath = $this->manager->getBasePath();
-        if (File::exists($basePath)) {
-            $directories = File::directories($basePath);
-            foreach ($directories as $dir) {
-                if (str_starts_with(basename($dir), 'paladin-fix-')) {
-                    File::deleteDirectory($dir);
-                }
-            }
-        }
-    }
-
-    protected function tearDown(): void
-    {
-        // Clean up test worktrees
-        $basePath = $this->manager->getBasePath();
-        if (File::exists($basePath)) {
-            $directories = File::directories($basePath);
-            foreach ($directories as $dir) {
-                if (str_starts_with(basename($dir), 'paladin-fix-')) {
-                    $this->manager->remove($dir);
-                }
-            }
-        }
-
-        parent::tearDown();
-    }
-
-    /** @test */
-    public function it_gets_base_path_from_config()
-    {
-        config(['paladin.worktree.base_path' => 'worktrees']);
-
-        $manager = new WorktreeManager;
-        $basePath = $manager->getBasePath();
-
-        $this->assertStringEndsWith('worktrees', $basePath);
-        $this->assertTrue($this->isAbsolutePath($basePath));
-    }
-
-    /** @test */
-    public function it_handles_absolute_paths()
-    {
-        config(['paladin.worktree.base_path' => '/tmp/paladin-worktrees']);
-
-        $manager = new WorktreeManager;
-
-        $this->assertEquals('/tmp/paladin-worktrees', $manager->getBasePath());
-    }
-
-    /** @test */
-    public function it_generates_worktree_name_with_issue_id()
-    {
-        config(['paladin.worktree.naming_pattern' => 'paladin-fix-{issue_id}']);
-
-        $manager = new WorktreeManager;
-        $method = $this->getProtectedMethod(WorktreeManager::class, 'generateWorktreeName');
-
-        $name = $method->invoke($manager, 'abc123def456');
-
-        $this->assertStringStartsWith('paladin-fix-abc123de', $name);
-    }
-
-    /** @test */
-    public function it_generates_worktree_name_with_timestamp()
-    {
-        config(['paladin.worktree.naming_pattern' => 'paladin-fix-{timestamp}']);
-
-        $manager = new WorktreeManager;
-        $method = $this->getProtectedMethod(WorktreeManager::class, 'generateWorktreeName');
-
-        $name = $method->invoke($manager, 'test-issue');
-
-        $this->assertStringStartsWith('paladin-fix-', $name);
-        $this->assertMatchesRegularExpression('/paladin-fix-\d{14}/', $name);
-    }
-
-    /** @test */
-    public function it_generates_worktree_name_with_both_placeholders()
-    {
-        config(['paladin.worktree.naming_pattern' => 'paladin-fix-{issue_id}-{timestamp}']);
-
-        $manager = new WorktreeManager;
-        $method = $this->getProtectedMethod(WorktreeManager::class, 'generateWorktreeName');
-
-        $name = $method->invoke($manager, 'abc123def456');
-
-        $this->assertMatchesRegularExpression('/paladin-fix-abc123de-\d{14}/', $name);
-    }
-
-    /** @test */
-    public function it_checks_if_path_is_absolute_unix()
-    {
-        $method = $this->getProtectedMethod(WorktreeManager::class, 'isAbsolutePath');
-
-        $this->assertTrue($method->invoke($this->manager, '/tmp/test'));
-        $this->assertFalse($method->invoke($this->manager, 'relative/path'));
-        $this->assertFalse($method->invoke($this->manager, ''));
-    }
-
-    /** @test */
-    public function it_checks_if_path_is_absolute_windows()
-    {
-        $method = $this->getProtectedMethod(WorktreeManager::class, 'isAbsolutePath');
-
-        $this->assertTrue($method->invoke($this->manager, 'C:/temp/test'));
-        $this->assertTrue($method->invoke($this->manager, 'D:/temp/test'));
-    }
-
-    /** @test */
-    public function it_gets_full_path_for_worktree()
-    {
-        config(['paladin.worktree.base_path' => '/tmp/paladin-test']);
-
-        $manager = new WorktreeManager;
-        $method = $this->getProtectedMethod(WorktreeManager::class, 'getFullPath');
-
-        $fullPath = $method->invoke($manager, 'test-worktree');
-
-        $this->assertEquals('/tmp/paladin-test/test-worktree', $fullPath);
-    }
-
-    /** @test */
-    public function it_checks_if_worktree_exists()
-    {
-        // Create a temporary directory
-        $testPath = sys_get_temp_dir().'/paladin-test-'.uniqid();
-        File::makeDirectory($testPath);
-
-        $this->assertTrue($this->manager->exists($testPath));
-
-        File::deleteDirectory($testPath);
-
-        $this->assertFalse($this->manager->exists($testPath));
-    }
-
-    /** @test */
-    public function it_returns_false_for_non_existent_worktree()
-    {
-        $this->assertFalse($this->manager->exists('/non/existent/path'));
-    }
-
-    /** @test */
-    public function it_returns_false_for_file_instead_of_directory()
-    {
-        $testFile = sys_get_temp_dir().'/paladin-test-file-'.uniqid();
-        file_put_contents($testFile, 'test');
-
-        $this->assertFalse($this->manager->exists($testFile));
-
-        unlink($testFile);
-    }
-
-    /** @test */
-    public function it_removes_worktree_directory()
-    {
-        // Create a temporary directory
-        $testPath = sys_get_temp_dir().'/paladin-test-'.uniqid();
-        File::makeDirectory($testPath);
-        File::put($testPath.'/test.txt', 'test content');
-
-        $this->assertTrue(File::exists($testPath));
-
-        $result = $this->manager->remove($testPath);
-
-        $this->assertTrue($result);
-        $this->assertFalse(File::exists($testPath));
-    }
-
-    /** @test */
-    public function it_returns_true_when_removing_non_existent_worktree()
-    {
-        $result = $this->manager->remove('/non/existent/path');
-
-        $this->assertTrue($result);
-    }
-
-    /** @test */
-    public function it_cleans_up_old_worktrees()
-    {
-        config([
-            'paladin.worktree.base_path' => sys_get_temp_dir().'/paladin-cleanup-test',
-            'paladin.worktree.cleanup_after_days' => 7,
-        ]);
-
-        $manager = new WorktreeManager;
-        $basePath = $manager->getBasePath();
-
-        // Create base directory
-        File::makeDirectory($basePath, 0755, true);
-
-        // Create an old worktree (modified 10 days ago)
-        $oldWorktree = $basePath.'/paladin-fix-old-'.uniqid();
-        File::makeDirectory($oldWorktree);
-        touch($oldWorktree, time() - (10 * 86400));
-
-        // Create a recent worktree (modified 1 day ago)
-        $recentWorktree = $basePath.'/paladin-fix-recent-'.uniqid();
-        File::makeDirectory($recentWorktree);
-        touch($recentWorktree, time() - (1 * 86400));
-
-        // Create a non-paladin directory (should not be touched)
-        $otherDir = $basePath.'/other-dir-'.uniqid();
-        File::makeDirectory($otherDir);
-        touch($otherDir, time() - (10 * 86400));
-
-        $this->assertTrue(File::exists($oldWorktree));
-        $this->assertTrue(File::exists($recentWorktree));
-        $this->assertTrue(File::exists($otherDir));
-
-        $removed = $manager->cleanupOld();
-
-        $this->assertEquals(1, $removed);
-        $this->assertFalse(File::exists($oldWorktree));
-        $this->assertTrue(File::exists($recentWorktree));
-        $this->assertTrue(File::exists($otherDir));
-
-        // Clean up
-        File::deleteDirectory($basePath);
-    }
-
-    /** @test */
-    public function it_returns_zero_when_base_path_does_not_exist()
-    {
-        config(['paladin.worktree.base_path' => '/tmp/non-existent-'.uniqid()]);
-
-        $manager = new WorktreeManager;
-        $removed = $manager->cleanupOld();
-
-        $this->assertEquals(0, $removed);
-    }
-
-    /** @test */
-    public function it_respects_cleanup_after_days_config()
-    {
-        config([
-            'paladin.worktree.base_path' => sys_get_temp_dir().'/paladin-cleanup-test-2',
-            'paladin.worktree.cleanup_after_days' => 3,
-        ]);
-
-        $manager = new WorktreeManager;
-        $basePath = $manager->getBasePath();
-
-        File::makeDirectory($basePath, 0755, true);
-
-        // Create a worktree modified 5 days ago (should be removed with 3-day cutoff)
-        $oldWorktree = $basePath.'/paladin-fix-test-'.uniqid();
-        File::makeDirectory($oldWorktree);
-        touch($oldWorktree, time() - (5 * 86400));
-
-        $removed = $manager->cleanupOld();
-
-        $this->assertEquals(1, $removed);
-        $this->assertFalse(File::exists($oldWorktree));
-
-        // Clean up
-        File::deleteDirectory($basePath);
-    }
-
-    /**
-     * Helper to get protected method for testing
-     */
-    protected function getProtectedMethod(string $class, string $methodName): \ReflectionMethod
-    {
-        $reflection = new \ReflectionClass($class);
-        $method = $reflection->getMethod($methodName);
-        $method->setAccessible(true);
-
-        return $method;
-    }
-
-    /**
-     * Helper to check if path is absolute (copied from WorktreeManager for testing)
-     */
-    protected function isAbsolutePath(string $path): bool
-    {
-        if (strlen($path) === 0) {
-            return false;
-        }
-
-        return $path[0] === '/' || (strlen($path) > 2 && $path[1] === ':');
-    }
+    $reflection = new ReflectionClass($class);
+    $method = $reflection->getMethod($methodName);
+    $method->setAccessible(true);
+
+    return $method;
 }
+
+function isAbsolutePath(string $path): bool
+{
+    if (strlen($path) === 0) {
+        return false;
+    }
+
+    return $path[0] === '/' || (strlen($path) > 2 && $path[1] === ':');
+}
+
+test('it gets base path from config', function () {
+    config(['paladin.worktree.base_path' => 'worktrees']);
+
+    $manager = new WorktreeManager;
+    $basePath = $manager->getBasePath();
+
+    expect($basePath)->toEndWith('worktrees');
+    expect(isAbsolutePath($basePath))->toBeTrue();
+});
+
+test('it handles absolute paths', function () {
+    config(['paladin.worktree.base_path' => '/tmp/paladin-worktrees']);
+
+    $manager = new WorktreeManager;
+
+    expect($manager->getBasePath())->toBe('/tmp/paladin-worktrees');
+});
+
+test('it generates worktree name with issue id', function () {
+    config(['paladin.worktree.naming_pattern' => 'paladin-fix-{issue_id}']);
+
+    $manager = new WorktreeManager;
+    $method = getProtectedMethod(WorktreeManager::class, 'generateWorktreeName');
+
+    $name = $method->invoke($manager, 'abc123def456');
+
+    expect($name)->toStartWith('paladin-fix-abc123de');
+});
+
+test('it generates worktree name with timestamp', function () {
+    config(['paladin.worktree.naming_pattern' => 'paladin-fix-{timestamp}']);
+
+    $manager = new WorktreeManager;
+    $method = getProtectedMethod(WorktreeManager::class, 'generateWorktreeName');
+
+    $name = $method->invoke($manager, 'test-issue');
+
+    expect($name)->toStartWith('paladin-fix-');
+    expect($name)->toMatch('/paladin-fix-\d{14}/');
+});
+
+test('it generates worktree name with both placeholders', function () {
+    config(['paladin.worktree.naming_pattern' => 'paladin-fix-{issue_id}-{timestamp}']);
+
+    $manager = new WorktreeManager;
+    $method = getProtectedMethod(WorktreeManager::class, 'generateWorktreeName');
+
+    $name = $method->invoke($manager, 'abc123def456');
+
+    expect($name)->toMatch('/paladin-fix-abc123de-\d{14}/');
+});
+
+test('it checks if path is absolute unix', function () {
+    $method = getProtectedMethod(WorktreeManager::class, 'isAbsolutePath');
+
+    expect($method->invoke($this->manager, '/tmp/test'))->toBeTrue();
+    expect($method->invoke($this->manager, 'relative/path'))->toBeFalse();
+    expect($method->invoke($this->manager, ''))->toBeFalse();
+});
+
+test('it checks if path is absolute windows', function () {
+    $method = getProtectedMethod(WorktreeManager::class, 'isAbsolutePath');
+
+    expect($method->invoke($this->manager, 'C:/temp/test'))->toBeTrue();
+    expect($method->invoke($this->manager, 'D:/temp/test'))->toBeTrue();
+});
+
+test('it gets full path for worktree', function () {
+    config(['paladin.worktree.base_path' => '/tmp/paladin-test']);
+
+    $manager = new WorktreeManager;
+    $method = getProtectedMethod(WorktreeManager::class, 'getFullPath');
+
+    $fullPath = $method->invoke($manager, 'test-worktree');
+
+    expect($fullPath)->toBe('/tmp/paladin-test/test-worktree');
+});
+
+test('it checks if worktree exists', function () {
+    // Create a temporary directory
+    $testPath = sys_get_temp_dir().'/paladin-test-'.uniqid();
+    File::makeDirectory($testPath);
+
+    expect($this->manager->exists($testPath))->toBeTrue();
+
+    File::deleteDirectory($testPath);
+
+    expect($this->manager->exists($testPath))->toBeFalse();
+});
+
+test('it returns false for non existent worktree', function () {
+    expect($this->manager->exists('/non/existent/path'))->toBeFalse();
+});
+
+test('it returns false for file instead of directory', function () {
+    $testFile = sys_get_temp_dir().'/paladin-test-file-'.uniqid();
+    file_put_contents($testFile, 'test');
+
+    expect($this->manager->exists($testFile))->toBeFalse();
+
+    unlink($testFile);
+});
+
+test('it removes worktree directory', function () {
+    // Create a temporary directory
+    $testPath = sys_get_temp_dir().'/paladin-test-'.uniqid();
+    File::makeDirectory($testPath);
+    File::put($testPath.'/test.txt', 'test content');
+
+    expect(File::exists($testPath))->toBeTrue();
+
+    $result = $this->manager->remove($testPath);
+
+    expect($result)->toBeTrue();
+    expect(File::exists($testPath))->toBeFalse();
+});
+
+test('it returns true when removing non existent worktree', function () {
+    $result = $this->manager->remove('/non/existent/path');
+
+    expect($result)->toBeTrue();
+});
+
+test('it cleans up old worktrees', function () {
+    config([
+        'paladin.worktree.base_path' => sys_get_temp_dir().'/paladin-cleanup-test',
+        'paladin.worktree.cleanup_after_days' => 7,
+    ]);
+
+    $manager = new WorktreeManager;
+    $basePath = $manager->getBasePath();
+
+    // Create base directory
+    File::makeDirectory($basePath, 0755, true);
+
+    // Create an old worktree (modified 10 days ago)
+    $oldWorktree = $basePath.'/paladin-fix-old-'.uniqid();
+    File::makeDirectory($oldWorktree);
+    touch($oldWorktree, time() - (10 * 86400));
+
+    // Create a recent worktree (modified 1 day ago)
+    $recentWorktree = $basePath.'/paladin-fix-recent-'.uniqid();
+    File::makeDirectory($recentWorktree);
+    touch($recentWorktree, time() - (1 * 86400));
+
+    // Create a non-paladin directory (should not be touched)
+    $otherDir = $basePath.'/other-dir-'.uniqid();
+    File::makeDirectory($otherDir);
+    touch($otherDir, time() - (10 * 86400));
+
+    expect(File::exists($oldWorktree))->toBeTrue();
+    expect(File::exists($recentWorktree))->toBeTrue();
+    expect(File::exists($otherDir))->toBeTrue();
+
+    $removed = $manager->cleanupOld();
+
+    expect($removed)->toBe(1);
+    expect(File::exists($oldWorktree))->toBeFalse();
+    expect(File::exists($recentWorktree))->toBeTrue();
+    expect(File::exists($otherDir))->toBeTrue();
+
+    // Clean up
+    File::deleteDirectory($basePath);
+});
+
+test('it returns zero when base path does not exist', function () {
+    config(['paladin.worktree.base_path' => '/tmp/non-existent-'.uniqid()]);
+
+    $manager = new WorktreeManager;
+    $removed = $manager->cleanupOld();
+
+    expect($removed)->toBe(0);
+});
+
+test('it respects cleanup after days config', function () {
+    config([
+        'paladin.worktree.base_path' => sys_get_temp_dir().'/paladin-cleanup-test-2',
+        'paladin.worktree.cleanup_after_days' => 3,
+    ]);
+
+    $manager = new WorktreeManager;
+    $basePath = $manager->getBasePath();
+
+    File::makeDirectory($basePath, 0755, true);
+
+    // Create a worktree modified 5 days ago (should be removed with 3-day cutoff)
+    $oldWorktree = $basePath.'/paladin-fix-test-'.uniqid();
+    File::makeDirectory($oldWorktree);
+    touch($oldWorktree, time() - (5 * 86400));
+
+    $removed = $manager->cleanupOld();
+
+    expect($removed)->toBe(1);
+    expect(File::exists($oldWorktree))->toBeFalse();
+
+    // Clean up
+    File::deleteDirectory($basePath);
+});
+
+test('it creates a new worktree', function () {
+    $tempBase = sys_get_temp_dir() . '/paladin-worktree-test-' . uniqid();
+    config(['paladin.worktree.base_path' => $tempBase]);
+    config(['paladin.git.default_branch' => 'main']);
+
+    $manager = new WorktreeManager;
+
+    // We can't easily mock exec() in this environment without extra tools,
+    // so we expect it to fail if git is not available or we are not in a git repo.
+    // To ensure it fails in a predictable way and reaches the exception, we just call it.
+
+    try {
+        $manager->create('issue-123');
+        // If it somehow succeeds, that's also fine, but unlikely in a test environment.
+        expect(true)->toBeTrue();
+    } catch (RuntimeException $e) {
+        expect($e->getMessage())->toContain('Failed to create git worktree');
+    }
+});

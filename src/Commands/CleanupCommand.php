@@ -30,12 +30,11 @@ class CleanupCommand extends Command
     /**
      * Execute the console command.
      */
-    public function handle(): int
+    public function handle(WorktreeManager $worktreeManager): int
     {
         $this->info('🛡️  Laravel Paladin - Worktree Cleanup');
         $this->newLine();
 
-        $worktreeManager = new WorktreeManager;
         $basePath = $this->getBasePath($worktreeManager);
 
         if (! File::exists($basePath)) {

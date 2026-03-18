@@ -8,6 +8,7 @@ use RuntimeException;
 class TestRunner
 {
     protected string $testCommand;
+
     protected int $timeout;
 
     public function __construct()
@@ -21,7 +22,7 @@ class TestRunner
      */
     public function run(string $workingDirectory): array
     {
-        if (!is_dir($workingDirectory)) {
+        if (! is_dir($workingDirectory)) {
             throw new RuntimeException("Working directory does not exist: {$workingDirectory}");
         }
 
@@ -49,7 +50,7 @@ class TestRunner
             $workingDirectory
         );
 
-        if (!is_resource($process)) {
+        if (! is_resource($process)) {
             throw new RuntimeException('Failed to start test process');
         }
 
@@ -79,16 +80,16 @@ class TestRunner
             }
 
             // Read available output
-            if (!feof($pipes[1])) {
+            if (! feof($pipes[1])) {
                 $stdout .= fread($pipes[1], 8192);
             }
 
-            if (!feof($pipes[2])) {
+            if (! feof($pipes[2])) {
                 $stderr .= fread($pipes[2], 8192);
             }
 
             // Check if process has finished
-            if (!$status['running']) {
+            if (! $status['running']) {
                 break;
             }
 
@@ -104,7 +105,7 @@ class TestRunner
 
         $returnCode = proc_close($process);
 
-        $fullOutput = trim($stdout . "\n" . $stderr);
+        $fullOutput = trim($stdout."\n".$stderr);
 
         $passed = $returnCode === 0;
 

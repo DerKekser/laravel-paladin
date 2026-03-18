@@ -2,8 +2,8 @@
 
 namespace Kekser\LaravelPaladin\Ai;
 
-use Kekser\LaravelPaladin\Ai\Agents\IssueAnalyzer;
-use Kekser\LaravelPaladin\Ai\Agents\PromptGenerator;
+use Kekser\LaravelPaladin\Ai\LaravelAi\Agents\IssueAnalyzer;
+use Kekser\LaravelPaladin\Ai\LaravelAi\Agents\PromptGenerator;
 use Laravel\Ai\Enums\Lab;
 
 class AgentFactory

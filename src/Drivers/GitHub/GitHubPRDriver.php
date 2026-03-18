@@ -10,7 +10,9 @@ use RuntimeException;
 class GitHubPRDriver implements PullRequestDriver
 {
     protected ?string $token;
+
     protected string $apiUrl;
+
     protected ?string $repository = null;
 
     public function __construct()
@@ -28,7 +30,7 @@ class GitHubPRDriver implements PullRequestDriver
         string $body,
         string $baseBranch = 'main'
     ): ?string {
-        if (!$this->isConfigured()) {
+        if (! $this->isConfigured()) {
             throw new RuntimeException('GitHub driver is not properly configured');
         }
 
@@ -51,7 +53,7 @@ class GitHubPRDriver implements PullRequestDriver
                     'base' => $baseBranch,
                 ]);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 Log::error('[Paladin] Failed to create GitHub PR', [
                     'status' => $response->status(),
                     'body' => $response->body(),
@@ -81,7 +83,7 @@ class GitHubPRDriver implements PullRequestDriver
      */
     public function isConfigured(): bool
     {
-        return !empty($this->token);
+        return ! empty($this->token);
     }
 
     /**
@@ -107,9 +109,10 @@ class GitHubPRDriver implements PullRequestDriver
         // HTTPS: https://github.com/owner/repo.git
         if (preg_match('/github\.com[\/:]([^\/]+\/[^\/]+?)(\.git)?$/', $remoteUrl, $matches)) {
             $this->repository = str_replace('.git', '', $matches[1]);
+
             return $this->repository;
         }
 
-        throw new RuntimeException('Could not parse repository from git remote URL: ' . $remoteUrl);
+        throw new RuntimeException('Could not parse repository from git remote URL: '.$remoteUrl);
     }
 }

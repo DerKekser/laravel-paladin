@@ -4,6 +4,7 @@ namespace Kekser\LaravelPaladin\Services;
 
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Process;
 use RuntimeException;
 
 class WorktreeSetup
@@ -62,17 +63,11 @@ class WorktreeSetup
         $flags = config('paladin.worktree.setup.composer_flags', '--no-interaction --prefer-dist --no-dev');
 
         // Build the command
-        $command = sprintf(
-            'cd %s && composer install %s 2>&1',
-            escapeshellarg($worktreePath),
-            $flags
-        );
+        $result = Process::path($worktreePath)->run(sprintf('composer install %s', $flags));
 
-        exec($command, $output, $returnCode);
-
-        if ($returnCode !== 0) {
+        if (! $result->successful()) {
             throw new RuntimeException(
-                'Composer install failed: '.implode("\n", $output)
+                'Composer install failed: '.$result->output()
             );
         }
 
@@ -134,16 +129,11 @@ class WorktreeSetup
         if (! preg_match('/^APP_KEY=\S+/m', $envContent)) {
             Log::info('[Paladin] Generating application key');
 
-            $command = sprintf(
-                'cd %s && php artisan key:generate --force 2>&1',
-                escapeshellarg($worktreePath)
-            );
+            $result = Process::path($worktreePath)->run('php artisan key:generate --force');
 
-            exec($command, $output, $returnCode);
-
-            if ($returnCode !== 0) {
+            if (! $result->successful()) {
                 Log::warning('[Paladin] Failed to generate app key', [
-                    'output' => implode("\n", $output),
+                    'output' => $result->output(),
                 ]);
             } else {
                 Log::info('[Paladin] Application key generated');
@@ -202,18 +192,12 @@ class WorktreeSetup
 
             // WARNING: Custom commands are executed directly without escaping.
             // Ensure custom_commands config only contains trusted input.
-            $fullCommand = sprintf(
-                'cd %s && %s 2>&1',
-                escapeshellarg($worktreePath),
-                $command
-            );
+            $result = Process::path($worktreePath)->run($command);
 
-            exec($fullCommand, $output, $returnCode);
-
-            if ($returnCode !== 0) {
+            if (! $result->successful()) {
                 Log::warning('[Paladin] Custom command failed', [
                     'command' => $command,
-                    'output' => implode("\n", $output),
+                    'output' => $result->output(),
                 ]);
                 // Don't throw - allow setup to continue even if custom commands fail
             } else {
