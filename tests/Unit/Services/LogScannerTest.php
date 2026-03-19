@@ -12,13 +12,19 @@ beforeEach(function () {
 
     $this->scanner = app(LogScanner::class);
 
-    // Reset cache before each test
-    Cache::forget('paladin.last_scan_time');
+    // Reset all states before each test
+    $this->scanner->resetAllStates();
 });
 
 afterEach(function () {
     if (isset($this->tempLogPath) && is_dir($this->tempLogPath)) {
         $this->deleteDirectory($this->tempLogPath);
+    }
+
+    // Clean up state file
+    $stateFilePath = storage_path('paladin-log-state.json');
+    if (file_exists($stateFilePath)) {
+        unlink($stateFilePath);
     }
 });
 
@@ -56,20 +62,45 @@ test('it can parse multi line log entries with stack traces', function () {
     expect($entries[0]['stack_trace'])->toContain('#1 /var/www/app/Http/Controllers/UserController.php(25)');
 });
 
-test('it only scans entries after last scan time', function () {
-    // Set last scan time to 1 hour ago
-    $lastScanTime = time() - 3600;
-    Cache::put('paladin.last_scan_time', $lastScanTime);
-
-    // Create log with old and new entries
-    $oldTimestamp = date('Y-m-d H:i:s', $lastScanTime - 60);
-    $newTimestamp = date('Y-m-d H:i:s', $lastScanTime + 60);
-
-    $logContent = "[{$oldTimestamp}] production.ERROR: Old error\n[{$newTimestamp}] production.ERROR: New error";
-    createLogFile($this->tempLogPath, 'laravel.log', $logContent);
+test('it tracks file position and only returns new entries on subsequent scans', function () {
+    // First scan - get initial entries
+    createLogFile($this->tempLogPath, 'laravel.log',
+        "[2026-03-15 10:00:00] production.ERROR: First error\n"
+    );
 
     $entries = $this->scanner->scan();
+    expect($entries)->toHaveCount(1);
+    expect($entries[0]['message'])->toBe('First error');
 
+    // Second scan - add new entries, should only return new ones
+    file_put_contents(
+        $this->tempLogPath.'/laravel.log',
+        "[2026-03-15 10:01:00] production.ERROR: Second error\n",
+        FILE_APPEND
+    );
+
+    $entries = $this->scanner->scan();
+    expect($entries)->toHaveCount(1);
+    expect($entries[0]['message'])->toBe('Second error');
+});
+
+test('it handles file rotation gracefully', function () {
+    // Create initial log file
+    createLogFile($this->tempLogPath, 'laravel.log',
+        "[2026-03-15 10:00:00] production.ERROR: Old error\n"
+    );
+
+    // Scan to set position
+    $this->scanner->scan();
+
+    // Simulate file rotation: delete and recreate with new content
+    unlink($this->tempLogPath.'/laravel.log');
+    createLogFile($this->tempLogPath, 'laravel.log',
+        "[2026-03-15 11:00:00] production.ERROR: New error\n"
+    );
+
+    // After rotation, should read from beginning
+    $entries = $this->scanner->scan();
     expect($entries)->toHaveCount(1);
     expect($entries[0]['message'])->toBe('New error');
 });
@@ -204,26 +235,35 @@ test('it handles empty log files', function () {
     expect($entries)->toHaveCount(0);
 });
 
-test('it updates last scan time after scanning', function () {
+test('it saves state to both cache and file', function () {
     createLogFile($this->tempLogPath, 'laravel.log', '[2026-03-15 10:00:00] production.ERROR: Test error');
-
-    expect(Cache::has('paladin.last_scan_time'))->toBeFalse();
 
     $this->scanner->scan();
 
-    expect(Cache::has('paladin.last_scan_time'))->toBeTrue();
-    $lastScanTime = Cache::get('paladin.last_scan_time');
-    expect($lastScanTime)->toBeGreaterThan(0);
-    expect($lastScanTime)->toBeLessThanOrEqual(time());
+    // Check cache
+    $cacheKey = 'paladin.log_state.'.md5($this->tempLogPath.'/laravel.log');
+    expect(Cache::has($cacheKey))->toBeTrue();
+
+    // Check file
+    $stateFilePath = storage_path('paladin-log-state.json');
+    expect(file_exists($stateFilePath))->toBeTrue();
 });
 
-test('it can reset last scan time', function () {
-    Cache::put('paladin.last_scan_time', time() - 3600);
-    expect(Cache::has('paladin.last_scan_time'))->toBeTrue();
+test('it can reset all states', function () {
+    createLogFile($this->tempLogPath, 'laravel.log', '[2026-03-15 10:00:00] production.ERROR: Test error');
 
-    $this->scanner->resetLastScanTime();
+    // First scan to create state
+    $this->scanner->scan();
 
-    expect(Cache::has('paladin.last_scan_time'))->toBeFalse();
+    // Verify state exists
+    $cacheKey = 'paladin.log_state.'.md5($this->tempLogPath.'/laravel.log');
+    expect(Cache::has($cacheKey))->toBeTrue();
+
+    // Reset states
+    $this->scanner->resetAllStates();
+
+    // Verify state cleared
+    expect(Cache::has($cacheKey))->toBeFalse();
 });
 
 test('it maps stack channel to laravel log', function () {
@@ -334,4 +374,43 @@ test('it includes entries with project files in stack trace', function () {
 
     expect($entries)->toHaveCount(1);
     expect($entries[0]['message'])->toBe('Project error');
+});
+
+test('it falls back to file storage when cache is cleared', function () {
+    createLogFile($this->tempLogPath, 'laravel.log',
+        "[2026-03-15 10:00:00] production.ERROR: First error\n"
+    );
+
+    // First scan
+    $this->scanner->scan();
+
+    // Clear cache but keep file state
+    $cacheKey = 'paladin.log_state.'.md5($this->tempLogPath.'/laravel.log');
+    Cache::forget($cacheKey);
+
+    // Add new content
+    file_put_contents(
+        $this->tempLogPath.'/laravel.log',
+        "[2026-03-15 10:01:00] production.ERROR: Second error\n",
+        FILE_APPEND
+    );
+
+    // Should still only get new entry because file state is preserved
+    $entries = $this->scanner->scan();
+    expect($entries)->toHaveCount(1);
+    expect($entries[0]['message'])->toBe('Second error');
+});
+
+test('it uses streaming to handle large files efficiently', function () {
+    // Create a moderately large log file (1000 entries)
+    $content = '';
+    for ($i = 0; $i < 1000; $i++) {
+        $content .= '[2026-03-15 '.sprintf('%02d', $i % 24).':00:00] production.ERROR: Error number '.$i."\n";
+    }
+
+    createLogFile($this->tempLogPath, 'laravel.log', $content);
+
+    $entries = $this->scanner->scan();
+
+    expect($entries)->toHaveCount(1000);
 });
