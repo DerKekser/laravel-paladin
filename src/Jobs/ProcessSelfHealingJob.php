@@ -95,7 +95,7 @@ class ProcessSelfHealingJob implements ShouldQueue
      */
     protected function ensureOpenCodeInstalled(): void
     {
-        $installer = new OpenCodeInstaller;
+        $installer = app(OpenCodeInstaller::class);
 
         if (! $installer->isInstalled()) {
             Log::info('[Paladin] OpenCode not installed, attempting installation');
@@ -113,7 +113,7 @@ class ProcessSelfHealingJob implements ShouldQueue
     {
         Log::info('[Paladin] Scanning logs for new entries');
 
-        $scanner = new LogScanner;
+        $scanner = app(LogScanner::class);
         $entries = $scanner->scan();
 
         Log::info('[Paladin] Found log entries', ['count' => count($entries)]);
@@ -181,7 +181,7 @@ class ProcessSelfHealingJob implements ShouldQueue
         ]);
 
         // Validate file boundaries BEFORE attempting fix
-        $validator = new FileBoundaryValidator;
+        $validator = app(FileBoundaryValidator::class);
         $validation = $validator->analyzeIssue($issue['affected_files'] ?? []);
 
         if (! $validation['is_fixable']) {
@@ -289,7 +289,7 @@ class ProcessSelfHealingJob implements ShouldQueue
     ): bool {
         $healingAttempt->markAsInProgress();
 
-        $worktreeManager = new WorktreeManager;
+        $worktreeManager = app(WorktreeManager::class);
         $worktree = null;
 
         try {
@@ -299,7 +299,7 @@ class ProcessSelfHealingJob implements ShouldQueue
 
             // Setup worktree (composer install, env file, etc.)
             if (config('paladin.worktree.setup.enabled', true)) {
-                $worktreeSetup = new WorktreeSetup;
+                $worktreeSetup = app(WorktreeSetup::class);
                 $setupSuccess = $worktreeSetup->setup($worktree['path']);
 
                 if (! $setupSuccess) {
@@ -330,7 +330,7 @@ class ProcessSelfHealingJob implements ShouldQueue
             $healingAttempt->update(['opencode_prompt' => $prompt]);
 
             // Run OpenCode
-            $opencodeRunner = new OpenCodeRunner;
+            $opencodeRunner = app(OpenCodeRunner::class);
             $opencodeResult = $opencodeRunner->run($prompt, $worktree['path']);
 
             $healingAttempt->update(['opencode_output' => $opencodeResult['output']]);
@@ -365,7 +365,7 @@ class ProcessSelfHealingJob implements ShouldQueue
             }
 
             // Run tests
-            $testRunner = new TestRunner;
+            $testRunner = app(TestRunner::class);
             $testResult = $testRunner->run($worktree['path']);
 
             $healingAttempt->update(['test_output' => $testResult['output']]);
@@ -417,12 +417,16 @@ class ProcessSelfHealingJob implements ShouldQueue
 
         // Create and checkout branch
         if (! $git->createBranch($worktreePath, $branchName)) {
+            $healingAttempt->markAsFailed('Failed to create branch');
+
             return false;
         }
 
         // Generate commit message and commit
         $commitMessage = $this->generateCommitMessage($issue, $attemptNumber, $maxAttempts);
         if (! $git->commit($worktreePath, $commitMessage)) {
+            $healingAttempt->markAsFailed('Failed to commit changes');
+
             return false;
         }
 
@@ -434,6 +438,8 @@ class ProcessSelfHealingJob implements ShouldQueue
         // Push branch if remote is configured
         if ($hasRemote) {
             if (! $git->push($worktreePath, $branchName)) {
+                $healingAttempt->markAsFailed('Failed to push branch');
+
                 return false;
             }
 

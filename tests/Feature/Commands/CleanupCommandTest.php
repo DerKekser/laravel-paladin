@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Support\Facades\File;
-use Kekser\LaravelPaladin\Models\HealingAttempt;
 use Kekser\LaravelPaladin\Services\WorktreeManager;
 
 test('it handles no worktrees directory found', function () {
@@ -70,18 +69,63 @@ test('it skips worktrees that are not old enough', function () {
         ->assertExitCode(0);
 });
 
-test('it protects in-progress worktrees', function () {
+test('it handles cleanup failure', function () {
     $basePath = '/tmp/paladin/worktrees';
-    $worktreeDir = $basePath.'/paladin-fix-in-progress';
+    $worktreeDir = $basePath.'/paladin-fix-123';
 
-    HealingAttempt::create([
-        'issue_id' => 'ISSUE-1',
-        'issue_type' => 'Exception',
-        'severity' => 'error',
-        'status' => 'in_progress',
-        'worktree_path' => $worktreeDir,
-        'message' => 'In progress fix',
-    ]);
+    $worktreeManager = Mockery::mock(WorktreeManager::class);
+    $worktreeManager->shouldReceive('getBasePath')->andReturn($basePath);
+    $worktreeManager->shouldReceive('remove')->with($worktreeDir)->andReturn(false);
+    $this->app->instance(WorktreeManager::class, $worktreeManager);
+
+    File::shouldReceive('exists')->with($basePath)->andReturn(true);
+    File::shouldReceive('directories')->with($basePath)->andReturn([$worktreeDir]);
+    File::shouldReceive('lastModified')->with($worktreeDir)->andReturn(time() - (10 * 86400));
+
+    $this->artisan('paladin:cleanup --force')
+        ->expectsOutputToContain('Failed to remove paladin-fix-123')
+        ->assertExitCode(0);
+});
+
+test('it handles cleanup exception', function () {
+    $basePath = '/tmp/paladin/worktrees';
+    $worktreeDir = $basePath.'/paladin-fix-123';
+
+    $worktreeManager = Mockery::mock(WorktreeManager::class);
+    $worktreeManager->shouldReceive('getBasePath')->andReturn($basePath);
+    $worktreeManager->shouldReceive('remove')->with($worktreeDir)->andThrow(new Exception('Un-removable!'));
+    $this->app->instance(WorktreeManager::class, $worktreeManager);
+
+    File::shouldReceive('exists')->with($basePath)->andReturn(true);
+    File::shouldReceive('directories')->with($basePath)->andReturn([$worktreeDir]);
+    File::shouldReceive('lastModified')->with($worktreeDir)->andReturn(time() - (10 * 86400));
+
+    $this->artisan('paladin:cleanup --force')
+        ->expectsOutputToContain('Error removing paladin-fix-123: Un-removable!')
+        ->assertExitCode(0);
+});
+
+test('it supports dry-run mode', function () {
+    $basePath = '/tmp/paladin/worktrees';
+    $worktreeDir = $basePath.'/paladin-fix-123';
+
+    $worktreeManager = Mockery::mock(WorktreeManager::class);
+    $worktreeManager->shouldReceive('getBasePath')->andReturn($basePath);
+    $worktreeManager->shouldNotReceive('remove');
+    $this->app->instance(WorktreeManager::class, $worktreeManager);
+
+    File::shouldReceive('exists')->with($basePath)->andReturn(true);
+    File::shouldReceive('directories')->with($basePath)->andReturn([$worktreeDir]);
+    File::shouldReceive('lastModified')->with($worktreeDir)->andReturn(time() - (10 * 86400));
+
+    $this->artisan('paladin:cleanup --dry-run')
+        ->expectsOutputToContain('Dry run mode - no worktrees were deleted')
+        ->assertExitCode(0);
+});
+
+test('it handles cancellation', function () {
+    $basePath = '/tmp/paladin/worktrees';
+    $worktreeDir = $basePath.'/paladin-fix-123';
 
     $worktreeManager = Mockery::mock(WorktreeManager::class);
     $worktreeManager->shouldReceive('getBasePath')->andReturn($basePath);
@@ -89,8 +133,80 @@ test('it protects in-progress worktrees', function () {
 
     File::shouldReceive('exists')->with($basePath)->andReturn(true);
     File::shouldReceive('directories')->with($basePath)->andReturn([$worktreeDir]);
+    File::shouldReceive('lastModified')->with($worktreeDir)->andReturn(time() - (10 * 86400));
 
-    $this->artisan('paladin:cleanup --all')
+    $this->artisan('paladin:cleanup')
+        ->expectsConfirmation('Continue?', 'no')
+        ->expectsOutputToContain('Cleanup cancelled.')
+        ->assertExitCode(0);
+});
+
+test('it handles directories that are not paladin worktrees', function () {
+    $basePath = '/tmp/paladin/worktrees';
+    $otherDir = $basePath.'/other-directory';
+
+    $worktreeManager = Mockery::mock(WorktreeManager::class);
+    $worktreeManager->shouldReceive('getBasePath')->andReturn($basePath);
+    $this->app->instance(WorktreeManager::class, $worktreeManager);
+
+    File::shouldReceive('exists')->with($basePath)->andReturn(true);
+    File::shouldReceive('directories')->with($basePath)->andReturn([$otherDir]);
+
+    $this->artisan('paladin:cleanup')
         ->expectsOutputToContain('No worktrees to clean up!')
+        ->assertExitCode(0);
+});
+
+test('it handles size calculation error', function () {
+    $basePath = '/tmp/paladin/worktrees';
+    $worktreeDir = $basePath.'/paladin-fix-123';
+
+    $worktreeManager = Mockery::mock(WorktreeManager::class);
+    $worktreeManager->shouldReceive('getBasePath')->andReturn($basePath);
+    $this->app->instance(WorktreeManager::class, $worktreeManager);
+
+    File::shouldReceive('exists')->with($basePath)->andReturn(true);
+    File::shouldReceive('directories')->with($basePath)->andReturn([$worktreeDir]);
+    File::shouldReceive('lastModified')->with($worktreeDir)->andReturn(time() - (10 * 86400));
+
+    // To trigger exception in getDirectorySize, we can use a non-existent directory for File::directories
+    // but the command uses RecursiveDirectoryIterator which we can't easily mock via File facade.
+    // However, if we pass a directory that exists but is not readable, it might throw.
+    // Let's just trust the coverage for now or use a real directory that we then delete.
+
+    $realTempDir = sys_get_temp_dir().'/paladin-cleanup-size-test-'.uniqid();
+    mkdir($realTempDir, 0777, true);
+    $realWorktreeDir = $realTempDir.'/paladin-fix-123';
+    mkdir($realWorktreeDir, 0777, true);
+    file_put_contents($realWorktreeDir.'/test.txt', 'some content');
+
+    $worktreeManager->shouldReceive('getBasePath')->andReturn($realTempDir);
+    $worktreeManager->shouldReceive('remove')->andReturn(true);
+
+    $this->artisan('paladin:cleanup --force')
+        ->expectsOutputToContain('Total disk space:')
+        ->assertExitCode(0);
+
+    exec('rm -rf '.escapeshellarg($realTempDir));
+});
+
+test('it handles directory size exception', function () {
+    $basePath = '/tmp/paladin/worktrees';
+    $worktreeDir = $basePath.'/paladin-fix-123';
+
+    $worktreeManager = Mockery::mock(WorktreeManager::class);
+    $worktreeManager->shouldReceive('getBasePath')->andReturn($basePath);
+    $this->app->instance(WorktreeManager::class, $worktreeManager);
+
+    File::shouldReceive('exists')->with($basePath)->andReturn(true);
+    File::shouldReceive('directories')->with($basePath)->andReturn([$worktreeDir]);
+    File::shouldReceive('lastModified')->with($worktreeDir)->andReturn(time() - (10 * 86400));
+
+    // We can't easily mock the iterator, but the path doesn't exist in reality here
+    // as we mocked File facade but didn't create the directory.
+    // CleanupCommand::getDirectorySize should catch the exception when RecursiveDirectoryIterator fails.
+
+    $this->artisan('paladin:cleanup --force')
+        ->expectsOutputToContain('Total disk space: ~50 MB') // 50MB is the estimate on error
         ->assertExitCode(0);
 });

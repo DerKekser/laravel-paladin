@@ -1,5 +1,8 @@
 <?php
 
+use Kekser\LaravelPaladin\Ai\AgentFactory;
+use Kekser\LaravelPaladin\Ai\LaravelAi\Agents\IssueAnalyzer;
+use Kekser\LaravelPaladin\Ai\LaravelAi\Agents\PromptGenerator;
 use Kekser\LaravelPaladin\Ai\LaravelAi\LaravelAiEvaluator;
 use Kekser\LaravelPaladin\Contracts\IssueEvaluator;
 
@@ -73,4 +76,44 @@ test('it reports empty errors when properly configured', function () {
 
     $errors = $evaluator->getConfigurationErrors();
     expect($errors)->toBeEmpty();
+});
+
+test('it analyzes issues using issue analyzer agent', function () {
+    $logEntries = [['message' => 'test error']];
+    $expectedIssues = [['id' => 'issue-1', 'title' => 'Test Issue']];
+
+    $mockAnalyzer = Mockery::mock(IssueAnalyzer::class);
+    $mockAnalyzer->shouldReceive('analyze')->with($logEntries)->once()->andReturn($expectedIssues);
+
+    $mockFactory = Mockery::mock(AgentFactory::class);
+    $mockFactory->shouldReceive('createIssueAnalyzer')->once()->andReturn($mockAnalyzer);
+
+    app()->instance(AgentFactory::class, $mockFactory);
+
+    $evaluator = new LaravelAiEvaluator;
+    $result = $evaluator->analyzeIssues($logEntries);
+
+    expect($result)->toBe($expectedIssues);
+});
+
+test('it generates prompt using prompt generator agent', function () {
+    $issue = ['id' => 'issue-1', 'title' => 'Test Issue'];
+    $testFailureOutput = 'PHPUnit failed...';
+    $expectedPrompt = 'Please fix this issue: ...';
+
+    $mockGenerator = Mockery::mock(PromptGenerator::class);
+    $mockGenerator->shouldReceive('generate')->once()->andReturn($expectedPrompt);
+
+    $mockFactory = Mockery::mock(AgentFactory::class);
+    $mockFactory->shouldReceive('createPromptGenerator')
+        ->with($issue, $testFailureOutput)
+        ->once()
+        ->andReturn($mockGenerator);
+
+    app()->instance(AgentFactory::class, $mockFactory);
+
+    $evaluator = new LaravelAiEvaluator;
+    $result = $evaluator->generatePrompt($issue, $testFailureOutput);
+
+    expect($result)->toBe($expectedPrompt);
 });

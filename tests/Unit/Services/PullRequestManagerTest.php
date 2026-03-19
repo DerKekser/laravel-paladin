@@ -1,6 +1,8 @@
 <?php
 
 use Kekser\LaravelPaladin\Contracts\PullRequestDriver;
+use Kekser\LaravelPaladin\Drivers\AzureDevOps\AzureDevOpsPRDriver;
+use Kekser\LaravelPaladin\Drivers\Mail\MailNotificationDriver;
 use Kekser\LaravelPaladin\Services\PullRequestManager;
 
 test('it uses github driver when configured', function () {
@@ -26,16 +28,18 @@ test('it uses azure driver when configured', function () {
     config(['paladin.pr_provider' => 'azure-devops']);
 
     $manager = new PullRequestManager;
+    $driver = $manager->getDriver();
 
-    expect($manager)->toBeInstanceOf(PullRequestManager::class);
+    expect($driver)->toBeInstanceOf(AzureDevOpsPRDriver::class);
 });
 
 test('it uses mail driver when configured', function () {
     config(['paladin.pr_provider' => 'mail']);
 
     $manager = new PullRequestManager;
+    $driver = $manager->getDriver();
 
-    expect($manager)->toBeInstanceOf(PullRequestManager::class);
+    expect($driver)->toBeInstanceOf(MailNotificationDriver::class);
 });
 
 test('it throws exception for unknown provider', function () {
@@ -47,11 +51,20 @@ test('it throws exception for unknown provider', function () {
 
 test('it uses default base branch', function () {
     config(['paladin.pr_provider' => 'github']);
-    config(['paladin.git.default_branch' => 'main']);
+    config(['paladin.git.default_branch' => 'develop']);
+
+    $mockDriver = Mockery::mock(PullRequestDriver::class);
+    $mockDriver->shouldReceive('createPullRequest')
+        ->with('test-branch', 'Test PR', 'Test body', 'develop')
+        ->once()
+        ->andReturn('http://github.com/pr/1');
 
     $manager = new PullRequestManager;
+    $manager->setDriver($mockDriver);
 
-    expect($manager)->toBeInstanceOf(PullRequestManager::class);
+    $result = $manager->createPullRequest('test-branch', 'Test PR', 'Test body');
+
+    expect($result)->toBe('http://github.com/pr/1');
 });
 
 test('it can get first available driver', function () {

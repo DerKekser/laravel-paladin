@@ -237,6 +237,36 @@ test('it maps stack channel to laravel log', function () {
     expect($entries)->toHaveCount(1);
 });
 
+test('it generates unique hashes for entries including file and line', function () {
+    $logContent = "[2026-03-15 10:00:00] production.ERROR: Error one\n"
+        ."[stacktrace]\n"
+        ."#0 /path/to/File.php(42): doSomething()\n"
+        ."in /path/to/File.php:42\n"
+        ."[2026-03-15 10:01:00] production.ERROR: Error one\n"
+        ."[stacktrace]\n"
+        ."#0 /path/to/Other.php(10): doSomething()\n"
+        .'in /path/to/Other.php:10';
+
+    createLogFile($this->tempLogPath, 'laravel.log', $logContent);
+
+    $entries = $this->scanner->scan();
+
+    expect($entries)->toHaveCount(2);
+    expect($entries[0]['hash'])->not->toBe($entries[1]['hash']);
+});
+
+test('it handles non-stack channel names', function () {
+    config(['paladin.log.channels' => ['custom']]);
+    $this->scanner = new LogScanner;
+
+    createLogFile($this->tempLogPath, 'custom.log', '[2026-03-15 10:00:00] production.ERROR: Custom error');
+
+    $entries = $this->scanner->scan();
+
+    expect($entries)->toHaveCount(1);
+    expect($entries[0]['message'])->toBe('Custom error');
+});
+
 test('it includes raw log line in entry', function () {
     $logLine = '[2026-03-15 10:23:45] production.ERROR: Division by zero';
     createLogFile($this->tempLogPath, 'laravel.log', $logLine);

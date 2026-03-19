@@ -42,6 +42,24 @@ test('it defaults to laravel ai when evaluator not set', function () {
     expect($evaluator)->toBeInstanceOf(LaravelAiEvaluator::class);
 });
 
+test('it returns existing evaluator instance', function () {
+    $factory = new EvaluatorFactory;
+    $evaluator1 = $factory->create();
+    $evaluator2 = $factory->create();
+
+    expect($evaluator1)->toBe($evaluator2);
+});
+
+test('it can explicitly set the evaluator', function () {
+    $mockEvaluator = Mockery::mock(IssueEvaluator::class);
+    $factory = new EvaluatorFactory;
+
+    $result = $factory->setEvaluator($mockEvaluator);
+
+    expect($result)->toBe($factory);
+    expect($factory->create())->toBe($mockEvaluator);
+});
+
 test('it throws exception for unsupported evaluator', function () {
     config(['paladin.ai.evaluator' => 'unsupported-evaluator']);
 

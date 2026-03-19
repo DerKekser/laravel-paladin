@@ -267,11 +267,11 @@ class StatusCommand extends Command
      */
     protected function truncateText(string $text, int $length): string
     {
-        if (strlen($text) <= $length) {
+        if (mb_strlen($text) <= $length) {
             return $text;
         }
 
-        return substr($text, 0, $length - 3).'...';
+        return mb_substr($text, 0, $length - 3).'...';
     }
 
     /**

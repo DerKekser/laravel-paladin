@@ -14,46 +14,61 @@ class WorktreeSetup
      */
     public function setup(string $worktreePath): bool
     {
-        try {
-            Log::info('[Paladin] Setting up worktree', ['path' => $worktreePath]);
+        Log::info('[Paladin] Setting up worktree', ['path' => $worktreePath]);
 
-            // 1. Composer install
-            if (config('paladin.worktree.setup.composer_install', true)) {
+        // 1. Composer install
+        if (config('paladin.worktree.setup.composer_install', true)) {
+            try {
                 $this->runComposerInstall($worktreePath);
+            } catch (\Throwable $e) {
+                Log::error('[Paladin] Composer install failed', ['error' => $e->getMessage()]);
+
+                return false;
             }
-
-            // 2. Environment setup
-            if (config('paladin.worktree.setup.copy_env', true)) {
-                $this->setupEnvironment($worktreePath);
-            }
-
-            // 3. Create storage directories
-            $this->createStorageDirectories($worktreePath);
-
-            // 4. Laravel Boost
-            app(LaravelBoostService::class)->ensureBoosted($worktreePath);
-
-            // 5. Custom commands
-            $this->runCustomCommands($worktreePath);
-
-            Log::info('[Paladin] Worktree setup completed successfully');
-
-            return true;
-        } catch (\Exception $e) {
-            Log::error('[Paladin] Worktree setup failed', [
-                'path' => $worktreePath,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            return false;
         }
+
+        // 2. Environment setup
+        if (config('paladin.worktree.setup.copy_env', true)) {
+            try {
+                $this->setupEnvironment($worktreePath);
+            } catch (\Throwable $e) {
+                Log::warning('[Paladin] Environment setup failed', ['error' => $e->getMessage()]);
+            }
+        }
+
+        // 3. Create storage directories
+        try {
+            $this->createStorageDirectories($worktreePath);
+        } catch (\Throwable $e) {
+            Log::warning('[Paladin] Storage directories creation failed', ['error' => $e->getMessage()]);
+        }
+
+        // 4. Laravel Boost
+        try {
+            $boostService = app(LaravelBoostService::class);
+            if ($boostService instanceof LaravelBoostService && File::exists($worktreePath.'/artisan')) {
+                $boostService->ensureBoosted($worktreePath);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('[Paladin] Laravel Boost failed', ['error' => $e->getMessage()]);
+        }
+
+        // 5. Custom commands
+        try {
+            $this->runCustomCommands($worktreePath);
+        } catch (\Throwable $e) {
+            Log::warning('[Paladin] Custom commands failed', ['error' => $e->getMessage()]);
+        }
+
+        Log::info('[Paladin] Worktree setup completed successfully');
+
+        return true;
     }
 
     /**
      * Run composer install in the worktree.
      */
-    protected function runComposerInstall(string $worktreePath): void
+    public function runComposerInstall(string $worktreePath): void
     {
         Log::info('[Paladin] Running composer install in worktree');
 
@@ -66,7 +81,8 @@ class WorktreeSetup
         $flags = config('paladin.worktree.setup.composer_flags', '--no-interaction --prefer-dist --no-dev');
 
         // Build the command
-        $result = Process::path($worktreePath)->run(sprintf('composer install %s', $flags));
+        $command = sprintf('composer install %s', $flags);
+        $result = Process::path($worktreePath)->run($command);
 
         if (! $result->successful()) {
             throw new RuntimeException(
@@ -80,7 +96,7 @@ class WorktreeSetup
     /**
      * Set up environment file in the worktree.
      */
-    protected function setupEnvironment(string $worktreePath): void
+    public function setupEnvironment(string $worktreePath): void
     {
         Log::info('[Paladin] Setting up environment file');
 
@@ -118,7 +134,7 @@ class WorktreeSetup
     /**
      * Ensure the APP_KEY is set in the environment file.
      */
-    protected function ensureAppKey(string $worktreePath): void
+    public function ensureAppKey(string $worktreePath): void
     {
         $envPath = $worktreePath.'/.env';
 
@@ -147,7 +163,7 @@ class WorktreeSetup
     /**
      * Create necessary storage directories in the worktree.
      */
-    protected function createStorageDirectories(string $worktreePath): void
+    public function createStorageDirectories(string $worktreePath): void
     {
         Log::info('[Paladin] Creating storage directories');
 
@@ -178,7 +194,7 @@ class WorktreeSetup
     /**
      * Run custom setup commands defined in configuration.
      */
-    protected function runCustomCommands(string $worktreePath): void
+    public function runCustomCommands(string $worktreePath): void
     {
         $customCommands = config('paladin.worktree.setup.custom_commands', []);
 

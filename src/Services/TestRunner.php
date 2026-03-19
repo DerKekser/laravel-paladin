@@ -134,11 +134,21 @@ class TestRunner
         $lines = explode("\n", $output);
 
         foreach ($lines as $line) {
-            // Match lines like: "Tests\Feature\ExampleTest::test_example"
-            if (preg_match('/^(FAILED|ERRORED?)\s+(.+)$/i', $line, $matches)) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+
+            // Simple match for anything that looks like a test name after some status
+            if (preg_match('/^(FAILED|ERRORED?|FAIL|✗|⨯|✘)\s+((Tests|App).+)$/iu', $line, $matches)) {
                 $failed[] = [
-                    'status' => $matches[1],
+                    'status' => trim($matches[1]),
                     'test' => trim($matches[2]),
+                ];
+            } elseif (preg_match('/^\d+\)\s+(.+)$/', $line, $matches)) {
+                $failed[] = [
+                    'status' => 'FAILED',
+                    'test' => trim($matches[1]),
                 ];
             }
 

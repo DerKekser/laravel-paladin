@@ -183,9 +183,21 @@ test('it includes return code in result', function () {
     expect($result['return_code'])->toBe(42);
 });
 
-test('it returns all expected keys', function () {
+test('it extracts failed tests from pest output', function () {
+    $output = "  \u{2717} Tests\Feature\ExampleTest > it works\n".
+              "  at tests/Feature/ExampleTest.php:10\n".
+              "  FAILED  Tests\Unit\AnotherTest > it fails";
+
     $scriptPath = $this->tempDir.'/test.sh';
-    file_put_contents($scriptPath, "#!/bin/bash\nexit 0");
+    // Use Heredoc to avoid escaping issues in echo
+    $scriptContent = <<<BASH
+#!/bin/bash
+cat << 'EOF'
+$output
+EOF
+exit 1
+BASH;
+    file_put_contents($scriptPath, $scriptContent);
     chmod($scriptPath, 0755);
 
     $runner = new TestRunner;
@@ -193,9 +205,7 @@ test('it returns all expected keys', function () {
 
     $result = $runner->run($this->tempDir);
 
-    expect($result)->toHaveKey('passed');
-    expect($result)->toHaveKey('timed_out');
-    expect($result)->toHaveKey('return_code');
-    expect($result)->toHaveKey('output');
-    expect($result)->toHaveKey('failed_tests');
+    $testNames = array_column($result['failed_tests'], 'test');
+    expect($testNames)->toContain('Tests\\Feature\\ExampleTest > it works');
+    expect($testNames)->toContain('Tests\\Unit\\AnotherTest > it fails');
 });

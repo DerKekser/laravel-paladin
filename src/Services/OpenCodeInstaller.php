@@ -63,13 +63,15 @@ class OpenCodeInstaller
             chmod($tempFile, 0755);
 
             // Execute the installation script
-            $result = Process::run(sprintf('bash %s', escapeshellarg($tempFile)));
+            $installCommand = sprintf('bash %s', escapeshellarg($tempFile));
+            $result = Process::run($installCommand);
 
             // Clean up temporary file
             @unlink($tempFile);
 
             if (! $result->successful()) {
                 Log::error('[Paladin] OpenCode installation failed', [
+                    'command' => $installCommand,
                     'output' => $result->output(),
                     'return_code' => $result->exitCode(),
                 ]);

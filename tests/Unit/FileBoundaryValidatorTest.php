@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\File;
 use Kekser\LaravelPaladin\Services\FileBoundaryValidator;
 
 beforeEach(function () {
@@ -125,4 +126,42 @@ test('it prioritizes allowed paths over excluded paths', function () {
 
     // Other app/ files should still work normally (not in allowed paths, but not excluded)
     expect($validator->isProjectFile('app/Http/Controllers/TestController.php'))->toBeTrue();
+});
+
+test('it parses gitignore patterns correctly', function () {
+    $gitignoreContent = <<<'GITIGNORE'
+# Comment
+vendor/
+node_modules/
+*.log
+!not_ignored.php
+GITIGNORE;
+
+    File::shouldReceive('exists')->with(base_path('.gitignore'))->andReturn(true);
+    File::shouldReceive('get')->with(base_path('.gitignore'))->andReturn($gitignoreContent);
+
+    $validator = new FileBoundaryValidator;
+
+    expect($validator->isProjectFile('test.log'))->toBeFalse();
+    expect($validator->isProjectFile('storage/logs/laravel.log'))->toBeFalse();
+    expect($validator->isProjectFile('app/Models/User.php'))->toBeTrue();
+});
+
+test('it handles non existent gitignore', function () {
+    File::shouldReceive('exists')->with(base_path('.gitignore'))->andReturn(false);
+
+    $validator = new FileBoundaryValidator;
+    expect($validator->isProjectFile('app/Models/User.php'))->toBeTrue();
+});
+
+test('it matches gitignore patterns from root', function () {
+    $gitignoreContent = "/root_only.php\n/build/";
+    File::shouldReceive('exists')->with(base_path('.gitignore'))->andReturn(true);
+    File::shouldReceive('get')->with(base_path('.gitignore'))->andReturn($gitignoreContent);
+
+    $validator = new FileBoundaryValidator;
+
+    expect($validator->isProjectFile('root_only.php'))->toBeFalse();
+    expect($validator->isProjectFile('subdir/root_only.php'))->toBeTrue();
+    expect($validator->isProjectFile('build/app.js'))->toBeFalse();
 });

@@ -92,7 +92,14 @@ test('it returns null version if version command fails', function () {
     Process::fake([
         'which opencode' => Process::result('/usr/bin/opencode', 0),
         'opencode --version' => Process::result('', 'Error', 1),
-        '*' => Process::result('', '', 1),
+        '*' => function ($process) {
+            $command = is_array($process->command) ? implode(' ', $process->command) : $process->command;
+            if (str_contains($command, '--version')) {
+                return Process::result('', 'Error', 1);
+            }
+
+            return Process::result('', '', 0);
+        },
     ]);
 
     $installer = new OpenCodeInstaller;
@@ -142,3 +149,70 @@ test('it throws exception when binary not found after installation', function ()
     $installer = new OpenCodeInstaller;
     $installer->install();
 })->throws(RuntimeException::class, 'OpenCode installation completed but binary not found in PATH');
+
+test('it logs error when installation fails', function () {
+    Http::fake([
+        'https://opencode.ai/install' => Http::response('echo "install script"', 200),
+    ]);
+
+    Log::shouldReceive('info')->withAnyArgs();
+    Log::shouldReceive('error')
+        ->with('[Paladin] OpenCode installation failed', Mockery::any())
+        ->once();
+    Log::shouldReceive('error')
+        ->with('[Paladin] OpenCode installation error', Mockery::any())
+        ->once();
+
+    Process::fake([
+        '*' => function ($process) {
+            $command = is_array($process->command) ? implode(' ', $process->command) : $process->command;
+            if (str_contains($command, 'bash ')) {
+                return Process::result('Process Failed', '', 1);
+            }
+            if (str_contains($command, 'which ')) {
+                return Process::result('', '', 1); // Not installed
+            }
+
+            return Process::result('Success', 0);
+        },
+    ]);
+
+    $installer = new OpenCodeInstaller;
+    try {
+        $installer->install();
+    } catch (RuntimeException $e) {
+        expect($e->getMessage())->toContain('OpenCode installation failed');
+    }
+});
+
+test('it handles exception during installation', function () {
+    Http::fake([
+        'https://opencode.ai/install' => Http::response('echo "install script"', 200),
+    ]);
+
+    Log::shouldReceive('info')->withAnyArgs();
+    Log::shouldReceive('error')
+        ->with('[Paladin] OpenCode installation error', Mockery::any())
+        ->once();
+
+    Process::fake([
+        '*' => function ($process) {
+            $command = is_array($process->command) ? implode(' ', $process->command) : $process->command;
+            if (str_contains($command, 'bash ')) {
+                throw new Exception('Unexpected error');
+            }
+            if (str_contains($command, 'which ')) {
+                return Process::result('', '', 1);
+            }
+
+            return Process::result('Success', 0);
+        },
+    ]);
+
+    $installer = new OpenCodeInstaller;
+    try {
+        $installer->install();
+    } catch (Exception $e) {
+        expect($e->getMessage())->toBe('Unexpected error');
+    }
+});

@@ -267,3 +267,25 @@ test('it creates a new worktree', function () {
         expect($e->getMessage())->toContain('Failed to create git worktree');
     }
 });
+
+test('it handles non-existent base directory in create', function () {
+    $tempBase = sys_get_temp_dir().'/paladin-worktree-new-base-'.uniqid();
+    // dirname($worktreePath) will be this $tempBase
+    $worktreePath = $tempBase.'/worktree';
+
+    config(['paladin.worktree.base_path' => $tempBase]);
+
+    $manager = new WorktreeManager;
+
+    // We want to trigger File::makeDirectory
+    expect(File::exists($tempBase))->toBeFalse();
+
+    try {
+        $manager->create('issue-123');
+    } catch (RuntimeException $e) {
+        // expected failure from exec()
+    }
+
+    expect(File::exists($tempBase))->toBeTrue();
+    File::deleteDirectory($tempBase);
+});
