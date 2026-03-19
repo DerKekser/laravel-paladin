@@ -249,7 +249,7 @@ test('it respects cleanup after days config', function () {
 });
 
 test('it creates a new worktree', function () {
-    $tempBase = sys_get_temp_dir() . '/paladin-worktree-test-' . uniqid();
+    $tempBase = sys_get_temp_dir().'/paladin-worktree-test-'.uniqid();
     config(['paladin.worktree.base_path' => $tempBase]);
     config(['paladin.git.default_branch' => 'main']);
 

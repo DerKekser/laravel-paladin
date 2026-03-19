@@ -1,15 +1,15 @@
 <?php
 
+use Illuminate\Support\Facades\Log;
 use Kekser\LaravelPaladin\Ai\Opencode\Agents\IssueAnalyzer;
 use Kekser\LaravelPaladin\Services\OpenCodeRunner;
-use Illuminate\Support\Facades\Log;
 
 beforeEach(function () {
     $this->runnerMock = Mockery::mock(OpenCodeRunner::class);
-    $this->analyzer = new IssueAnalyzer();
+    $this->analyzer = new IssueAnalyzer;
 
     // Inject mock via reflection
-    $reflection = new \ReflectionClass(IssueAnalyzer::class);
+    $reflection = new ReflectionClass(IssueAnalyzer::class);
     $property = $reflection->getProperty('runner');
     $property->setAccessible(true);
     $property->setValue($this->analyzer, $this->runnerMock);
@@ -24,7 +24,7 @@ test('it analyzes log entries successfully', function () {
             'level' => 'error',
             'message' => 'Something went wrong',
             'stack_trace' => '#0 file.php(10)',
-        ]
+        ],
     ];
 
     $jsonOutput = json_encode([
@@ -38,9 +38,9 @@ test('it analyzes log entries successfully', function () {
                 'stack_trace' => 'Trace',
                 'affected_files' => ['file.php'],
                 'suggested_fix' => 'Fix',
-                'log_level' => 'error'
-            ]
-        ]
+                'log_level' => 'error',
+            ],
+        ],
     ]);
 
     $this->runnerMock->shouldReceive('run')
@@ -74,9 +74,9 @@ test('it handles opencode failure', function () {
 
 test('it extracts json from markdown code fences', function () {
     $logEntries = [['message' => 'test']];
-    $output = "Here is the analysis:\n```json\n" . json_encode([
-        'issues' => [['id' => '1']]
-    ]) . "\n```\nHope this helps!";
+    $output = "Here is the analysis:\n```json\n".json_encode([
+        'issues' => [['id' => '1']],
+    ])."\n```\nHope this helps!";
 
     $this->runnerMock->shouldReceive('run')
         ->once()
@@ -95,9 +95,9 @@ test('it extracts json from markdown code fences', function () {
 test('it extracts json by finding issues key', function () {
     $logEntries = [['message' => 'test']];
     $json = json_encode([
-        'issues' => [['id' => '2']]
+        'issues' => [['id' => '2']],
     ]);
-    $output = "Some text before " . $json . " some text after";
+    $output = 'Some text before '.$json.' some text after';
 
     $this->runnerMock->shouldReceive('run')
         ->once()
@@ -115,7 +115,7 @@ test('it extracts json by finding issues key', function () {
 
 test('it throws exception if json not found', function () {
     $logEntries = [['message' => 'test']];
-    $output = "No JSON here";
+    $output = 'No JSON here';
 
     $this->runnerMock->shouldReceive('run')
         ->once()

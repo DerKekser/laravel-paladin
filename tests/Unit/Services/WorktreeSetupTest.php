@@ -1,18 +1,18 @@
 <?php
 
-use Kekser\LaravelPaladin\Services\WorktreeSetup;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
+use Kekser\LaravelPaladin\Services\WorktreeSetup;
 
 beforeEach(function () {
-    $this->setup = new WorktreeSetup();
-    $this->tempDir = sys_get_temp_dir() . '/paladin_test_' . uniqid();
+    $this->setup = new WorktreeSetup;
+    $this->tempDir = sys_get_temp_dir().'/paladin_test_'.uniqid();
     mkdir($this->tempDir, 0777, true);
 });
 
 afterEach(function () {
     if (is_dir($this->tempDir)) {
-        exec('rm -rf ' . escapeshellarg($this->tempDir));
+        exec('rm -rf '.escapeshellarg($this->tempDir));
     }
 });
 

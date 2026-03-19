@@ -1,8 +1,8 @@
 <?php
 
-use Kekser\LaravelPaladin\Services\OpenCodeInstaller;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
+use Kekser\LaravelPaladin\Services\OpenCodeInstaller;
 
 beforeEach(function () {
     Process::preventStrayProcesses();
@@ -13,7 +13,7 @@ test('it checks if installed', function () {
         '*' => Process::result('/usr/bin/opencode', 0),
     ]);
 
-    $installer = new OpenCodeInstaller();
+    $installer = new OpenCodeInstaller;
     expect($installer->isInstalled())->toBeTrue();
 });
 
@@ -22,7 +22,7 @@ test('it checks if not installed', function () {
         '*' => Process::result('', '', 1),
     ]);
 
-    $installer = new OpenCodeInstaller();
+    $installer = new OpenCodeInstaller;
     expect($installer->isInstalled())->toBeFalse();
 });
 
@@ -31,7 +31,7 @@ test('it ensures installed when already installed', function () {
         '*' => Process::result('/usr/bin/opencode', 0),
     ]);
 
-    $installer = new OpenCodeInstaller();
+    $installer = new OpenCodeInstaller;
     expect($installer->ensureInstalled())->toBeTrue();
 });
 
@@ -47,7 +47,7 @@ test('it ensures installed by installing if not already present', function () {
             ->push(Process::result('/usr/bin/opencode', 0)),
     ]);
 
-    $installer = new OpenCodeInstaller();
+    $installer = new OpenCodeInstaller;
     expect($installer->ensureInstalled())->toBeTrue();
 });
 
@@ -57,7 +57,7 @@ test('it throws exception if not installed and auto install disabled', function 
         '*' => Process::result('', '', 1),
     ]);
 
-    $installer = new OpenCodeInstaller();
+    $installer = new OpenCodeInstaller;
     $installer->ensureInstalled();
 })->throws(RuntimeException::class, 'OpenCode is not installed and auto-installation is disabled');
 
@@ -72,12 +72,12 @@ test('it installs successfully', function () {
         '*' => Process::result('/usr/bin/opencode', 0),
     ]);
 
-    $installer = new OpenCodeInstaller();
+    $installer = new OpenCodeInstaller;
     expect($installer->install())->toBeTrue();
 });
 
 test('it returns null version if not installed', function () {
-    $installer = new OpenCodeInstaller();
+    $installer = new OpenCodeInstaller;
 
     config(['paladin.opencode.binary_path' => 'nonexistent-binary']);
     Process::fake([
@@ -95,7 +95,7 @@ test('it returns null version if version command fails', function () {
         '*' => Process::result('', '', 1),
     ]);
 
-    $installer = new OpenCodeInstaller();
+    $installer = new OpenCodeInstaller;
     expect($installer->getVersion())->toBeNull();
 });
 
@@ -109,7 +109,7 @@ test('it throws exception when install script download fails', function () {
         '*' => Process::result('', '', 1),
     ]);
 
-    $installer = new OpenCodeInstaller();
+    $installer = new OpenCodeInstaller;
     $installer->install();
 })->throws(RuntimeException::class, 'Failed to download OpenCode installation script');
 
@@ -124,7 +124,7 @@ test('it throws exception when installation script fails', function () {
         '*' => Process::result('', '', 1),
     ]);
 
-    $installer = new OpenCodeInstaller();
+    $installer = new OpenCodeInstaller;
     $installer->install();
 })->throws(RuntimeException::class, 'OpenCode installation failed');
 
@@ -139,6 +139,6 @@ test('it throws exception when binary not found after installation', function ()
         '*' => Process::result('', '', 1),
     ]);
 
-    $installer = new OpenCodeInstaller();
+    $installer = new OpenCodeInstaller;
     $installer->install();
 })->throws(RuntimeException::class, 'OpenCode installation completed but binary not found in PATH');
