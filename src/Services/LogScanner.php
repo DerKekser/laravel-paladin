@@ -8,15 +8,35 @@ use Illuminate\Support\Facades\Log;
 
 class LogScanner
 {
+    /**
+     * Storage path for log files.
+     */
     protected string $storagePath;
 
+    /**
+     * Log channels to scan.
+     */
     protected array $channels;
 
+    /**
+     * Log levels to include.
+     */
     protected array $levels;
 
+    /**
+     * Patterns to ignore.
+     */
     protected array $ignorePatterns;
 
+    /**
+     * File boundary validator.
+     */
     protected FileBoundaryValidator $boundaryValidator;
+
+    /**
+     * Log state storage service.
+     */
+    protected LogStateStorage $stateStorage;
 
     public function __construct()
     {
@@ -29,14 +49,15 @@ class LogScanner
         $this->levels = config('paladin.log.levels');
         $this->ignorePatterns = config('paladin.issues.ignore_patterns', []);
         $this->boundaryValidator = app(FileBoundaryValidator::class);
+        $this->stateStorage = app(LogStateStorage::class);
     }
 
     /**
      * Scan log files for new entries since last scan.
+     * Uses streaming for memory efficiency and position-based tracking.
      */
     public function scan(): array
     {
-        $lastScanTime = $this->getLastScanTime();
         $entries = [];
 
         foreach ($this->channels as $channel) {
@@ -47,11 +68,9 @@ class LogScanner
                 continue;
             }
 
-            $newEntries = $this->parseLogFile($logFile, $lastScanTime);
+            $newEntries = $this->parseLogFile($logFile);
             $entries = array_merge($entries, $newEntries);
         }
-
-        $this->updateLastScanTime();
 
         return $this->filterAndDeduplicate($entries);
     }
@@ -71,18 +90,50 @@ class LogScanner
     }
 
     /**
-     * Parse log file and extract entries newer than the given timestamp.
+     * Parse log file and extract new entries using streaming.
+     * Tracks file position to avoid re-processing old entries.
      */
-    protected function parseLogFile(string $filePath, int $lastScanTime): array
+    protected function parseLogFile(string $filePath): array
     {
         $entries = [];
+        $state = $this->stateStorage->getState($filePath);
 
-        $content = File::get($filePath);
-        $lines = explode("\n", $content);
+        // Check if file has been rotated or replaced
+        if ($this->stateStorage->hasFileRotated($filePath, $state)) {
+            Log::info('[Paladin] Log file rotated, resetting state', ['file' => $filePath]);
+            $state = $this->stateStorage->getDefaultState();
+        }
+
+        // Get current file stats
+        $fileStats = $this->getFileStats($filePath);
+        $currentSize = $fileStats['size'];
+
+        // If file hasn't grown, nothing new to read
+        if ($currentSize <= $state['position']) {
+            return $entries;
+        }
+
+        // Open file for reading with streaming
+        $file = new \SplFileObject($filePath, 'r');
+
+        // Seek to last read position
+        $file->fseek($state['position']);
 
         $currentEntry = null;
+        $lastPosition = $state['position'];
 
-        foreach ($lines as $line) {
+        while (! $file->eof()) {
+            $line = $file->fgets();
+            if ($line === false) {
+                break;
+            }
+
+            // Track position before processing this line
+            $lastPosition = $file->ftell();
+
+            // Remove trailing newline for consistent parsing
+            $line = rtrim($line, "\r\n");
+
             // Match Laravel log format: [YYYY-MM-DD HH:MM:SS] environment.LEVEL: message
             if (preg_match('/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]\s+\w+\.(\w+):\s+(.*)$/', $line, $matches)) {
                 // Save previous entry if exists
@@ -95,8 +146,8 @@ class LogScanner
                 $level = strtolower($matches[2]);
                 $message = $matches[3];
 
-                // Only include if timestamp is after last scan and level matches
-                if ($timestamp > $lastScanTime && in_array($level, $this->levels)) {
+                // Only include if level matches
+                if (in_array($level, $this->levels)) {
                     $currentEntry = [
                         'timestamp' => $timestamp,
                         'level' => $level,
@@ -119,7 +170,31 @@ class LogScanner
             $entries[] = $currentEntry;
         }
 
+        // Update state with new position
+        $newState = array_merge($state, [
+            'position' => $lastPosition,
+            'size' => $currentSize,
+            'inode' => $fileStats['inode'],
+            'mtime' => $fileStats['mtime'],
+        ]);
+
+        $this->stateStorage->saveState($filePath, $newState);
+
         return $entries;
+    }
+
+    /**
+     * Get file statistics for rotation detection.
+     */
+    protected function getFileStats(string $filePath): array
+    {
+        $stat = stat($filePath);
+
+        return [
+            'size' => $stat['size'] ?? 0,
+            'inode' => $stat['ino'] ?? null,
+            'mtime' => $stat['mtime'] ?? null,
+        ];
     }
 
     /**
@@ -198,26 +273,28 @@ class LogScanner
     }
 
     /**
-     * Get the timestamp of the last scan.
+     * Reset state for a specific log file.
      */
-    protected function getLastScanTime(): int
+    public function resetState(string $channel): void
     {
-        return Cache::get('paladin.last_scan_time', 0);
+        $filePath = $this->getLogFilePath($channel);
+        $this->stateStorage->resetState($filePath);
     }
 
     /**
-     * Update the last scan timestamp.
+     * Reset all log states.
      */
-    protected function updateLastScanTime(): void
+    public function resetAllStates(): void
     {
-        Cache::put('paladin.last_scan_time', time(), now()->addDays(30));
+        $this->stateStorage->resetAllStates();
     }
 
     /**
-     * Reset the last scan time (useful for testing or manual re-scanning).
+     * @deprecated Use resetAllStates() instead
      */
     public function resetLastScanTime(): void
     {
         Cache::forget('paladin.last_scan_time');
+        $this->resetAllStates();
     }
 }
