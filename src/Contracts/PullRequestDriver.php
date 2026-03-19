@@ -24,4 +24,11 @@ interface PullRequestDriver
      * Check if the driver is properly configured.
      */
     public function isConfigured(): bool;
+
+    /**
+     * Get any configuration errors for the driver.
+     *
+     * @return array<string>
+     */
+    public function getConfigurationErrors(): array;
 }

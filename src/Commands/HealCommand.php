@@ -5,6 +5,7 @@ namespace Kekser\LaravelPaladin\Commands;
 use Illuminate\Console\Command;
 use Kekser\LaravelPaladin\Ai\EvaluatorFactory;
 use Kekser\LaravelPaladin\Jobs\ProcessSelfHealingJob;
+use Kekser\LaravelPaladin\Services\PullRequestManager;
 
 class HealCommand extends Command
 {
@@ -110,17 +111,13 @@ class HealCommand extends Command
         }
 
         // Check if PR provider is configured properly
-        $prProvider = config('paladin.pr_provider');
-        if ($prProvider === 'github' && ! config('paladin.providers.github.token')) {
-            $errors[] = 'GitHub token not configured. Set PALADIN_GITHUB_TOKEN in your .env file.';
-        }
-
-        if ($prProvider === 'azure-devops' && (! config('paladin.providers.azure-devops.organization') || ! config('paladin.providers.azure-devops.token'))) {
-            $errors[] = 'Azure DevOps not fully configured. Set PALADIN_AZURE_DEVOPS_ORG and PALADIN_AZURE_DEVOPS_PAT in your .env file.';
-        }
-
-        if ($prProvider === 'mail' && ! config('paladin.providers.mail.to')) {
-            $errors[] = 'Mail recipient not configured. Set PALADIN_MAIL_TO in your .env file.';
+        try {
+            $prErrors = app(PullRequestManager::class)->getDriver()->getConfigurationErrors();
+            foreach ($prErrors as $error) {
+                $errors[] = $error;
+            }
+        } catch (\Exception $e) {
+            $errors[] = $e->getMessage();
         }
 
         // Display errors if any

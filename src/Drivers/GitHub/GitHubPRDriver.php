@@ -83,7 +83,23 @@ class GitHubPRDriver implements PullRequestDriver
      */
     public function isConfigured(): bool
     {
-        return ! empty($this->token);
+        return empty($this->getConfigurationErrors());
+    }
+
+    /**
+     * Get any configuration errors for the driver.
+     *
+     * @return array<string>
+     */
+    public function getConfigurationErrors(): array
+    {
+        $errors = [];
+
+        if (empty($this->token)) {
+            $errors[] = 'GitHub token not configured. Set PALADIN_GITHUB_TOKEN in your .env file.';
+        }
+
+        return $errors;
     }
 
     /**

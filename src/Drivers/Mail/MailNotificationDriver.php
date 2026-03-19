@@ -72,7 +72,27 @@ class MailNotificationDriver implements PullRequestDriver
      */
     public function isConfigured(): bool
     {
-        return ! empty($this->to) && ! empty($this->from);
+        return empty($this->getConfigurationErrors());
+    }
+
+    /**
+     * Get any configuration errors for the driver.
+     *
+     * @return array<string>
+     */
+    public function getConfigurationErrors(): array
+    {
+        $errors = [];
+
+        if (empty($this->to)) {
+            $errors[] = 'Mail recipient not configured. Set PALADIN_MAIL_TO in your .env file.';
+        }
+
+        if (empty($this->from)) {
+            $errors[] = 'Mail sender not configured. Set PALADIN_MAIL_FROM in your .env file.';
+        }
+
+        return $errors;
     }
 
     /**

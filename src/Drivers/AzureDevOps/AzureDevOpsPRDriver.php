@@ -95,9 +95,27 @@ class AzureDevOpsPRDriver implements PullRequestDriver
      */
     public function isConfigured(): bool
     {
-        return ! empty($this->token)
-            && ! empty($this->organization)
-            && ! empty($this->project);
+        return empty($this->getConfigurationErrors());
+    }
+
+    /**
+     * Get any configuration errors for the driver.
+     *
+     * @return array<string>
+     */
+    public function getConfigurationErrors(): array
+    {
+        $errors = [];
+
+        if (empty($this->organization) || empty($this->token)) {
+            $errors[] = 'Azure DevOps not fully configured. Set PALADIN_AZURE_DEVOPS_ORG and PALADIN_AZURE_DEVOPS_PAT in your .env file.';
+        }
+
+        if (empty($this->project)) {
+            $errors[] = 'Azure DevOps project not configured. Set PALADIN_AZURE_DEVOPS_PROJECT in your .env file.';
+        }
+
+        return $errors;
     }
 
     /**
