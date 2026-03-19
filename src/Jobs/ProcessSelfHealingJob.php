@@ -10,16 +10,10 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Kekser\LaravelPaladin\Ai\EvaluatorFactory;
 use Kekser\LaravelPaladin\Contracts\IssueEvaluator;
-use Kekser\LaravelPaladin\Models\HealingAttempt;
-use Kekser\LaravelPaladin\Pr\PullRequestManager;
-use Kekser\LaravelPaladin\Services\FileBoundaryValidator;
-use Kekser\LaravelPaladin\Services\GitService;
+use Kekser\LaravelPaladin\Services\IssuePrioritizer;
 use Kekser\LaravelPaladin\Services\LogScanner;
 use Kekser\LaravelPaladin\Services\OpenCodeInstaller;
-use Kekser\LaravelPaladin\Services\OpenCodeRunner;
-use Kekser\LaravelPaladin\Services\TestRunner;
-use Kekser\LaravelPaladin\Services\WorktreeManager;
-use Kekser\LaravelPaladin\Services\WorktreeSetup;
+use Kekser\LaravelPaladin\Services\SelfHealingOrchestrator;
 
 class ProcessSelfHealingJob implements ShouldQueue
 {
@@ -50,16 +44,20 @@ class ProcessSelfHealingJob implements ShouldQueue
     /**
      * Execute the self-healing job.
      */
-    public function handle(): void
-    {
+    public function handle(
+        OpenCodeInstaller $installer,
+        LogScanner $scanner,
+        IssuePrioritizer $prioritizer,
+        SelfHealingOrchestrator $orchestrator
+    ): void {
         Log::info('[Paladin] Starting self-healing process');
 
         try {
             // Step 1: Ensure OpenCode is installed
-            $this->ensureOpenCodeInstalled();
+            $this->ensureOpenCodeInstalled($installer);
 
             // Step 2: Scan logs for issues
-            $logEntries = $this->scanLogs();
+            $logEntries = $this->scanLogs($scanner);
 
             if (empty($logEntries)) {
                 Log::info('[Paladin] No new log entries found');
@@ -76,8 +74,16 @@ class ProcessSelfHealingJob implements ShouldQueue
                 return;
             }
 
-            // Step 4: Process each issue
-            $this->processIssues($issues);
+            // Step 4: Prioritize and limit issues
+            $issues = $prioritizer->prioritize($issues);
+
+            Log::info('[Paladin] Issues analyzed and prioritized', [
+                'total' => count($issues),
+                'processing' => count($issues),
+            ]);
+
+            // Step 5: Process issues through orchestrator
+            $orchestrator->processIssues($issues, $this->specificIssues);
 
             Log::info('[Paladin] Self-healing process completed');
         } catch (\Exception $e) {
@@ -93,10 +99,8 @@ class ProcessSelfHealingJob implements ShouldQueue
     /**
      * Ensure OpenCode is installed.
      */
-    protected function ensureOpenCodeInstalled(): void
+    protected function ensureOpenCodeInstalled(OpenCodeInstaller $installer): void
     {
-        $installer = app(OpenCodeInstaller::class);
-
         if (! $installer->isInstalled()) {
             Log::info('[Paladin] OpenCode not installed, attempting installation');
             $installer->ensureInstalled();
@@ -109,11 +113,10 @@ class ProcessSelfHealingJob implements ShouldQueue
     /**
      * Scan logs for new entries.
      */
-    protected function scanLogs(): array
+    protected function scanLogs(LogScanner $scanner): array
     {
         Log::info('[Paladin] Scanning logs for new entries');
 
-        $scanner = app(LogScanner::class);
         $entries = $scanner->scan();
 
         Log::info('[Paladin] Found log entries', ['count' => count($entries)]);
@@ -131,391 +134,7 @@ class ProcessSelfHealingJob implements ShouldQueue
         $evaluator = $this->getEvaluator();
         $issues = $evaluator->analyzeIssues($logEntries);
 
-        // Sort by severity
-        $severityOrder = ['critical' => 1, 'high' => 2, 'medium' => 3, 'low' => 4];
-        usort($issues, function ($a, $b) use ($severityOrder) {
-            $aSeverity = $severityOrder[$a['severity']] ?? 999;
-            $bSeverity = $severityOrder[$b['severity']] ?? 999;
-
-            return $aSeverity <=> $bSeverity;
-        });
-
-        // Limit to max issues per run
-        $maxIssues = config('paladin.issues.max_per_run', 5);
-        $issues = array_slice($issues, 0, $maxIssues);
-
-        Log::info('[Paladin] Issues analyzed and prioritized', [
-            'total' => count($issues),
-            'processing' => count($issues),
-        ]);
-
         return $issues;
-    }
-
-    /**
-     * Process each issue by attempting to fix it.
-     */
-    protected function processIssues(array $issues): void
-    {
-        foreach ($issues as $issue) {
-            try {
-                $this->processIssue($issue);
-            } catch (\Exception $e) {
-                Log::error('[Paladin] Failed to process issue', [
-                    'issue_id' => $issue['id'],
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        }
-    }
-
-    /**
-     * Process a single issue.
-     */
-    protected function processIssue(array $issue): void
-    {
-        Log::info('[Paladin] Processing issue', [
-            'id' => $issue['id'],
-            'type' => $issue['type'],
-            'severity' => $issue['severity'],
-        ]);
-
-        // Validate file boundaries BEFORE attempting fix
-        $validator = app(FileBoundaryValidator::class);
-        $validation = $validator->analyzeIssue($issue['affected_files'] ?? []);
-
-        if (! $validation['is_fixable']) {
-            // Create healing attempt record with 'skipped' status
-            $healingAttempt = HealingAttempt::create([
-                'issue_id' => $issue['id'],
-                'issue_type' => $issue['type'],
-                'severity' => $issue['severity'],
-                'message' => $issue['message'],
-                'stack_trace' => $issue['stack_trace'] ?? null,
-                'affected_files' => $issue['affected_files'] ?? [],
-                'attempt_number' => 1,
-                'status' => 'skipped',
-                'error_message' => $validation['reason'],
-            ]);
-
-            Log::warning('[Paladin] Issue skipped - root cause outside project', [
-                'issue_id' => $issue['id'],
-                'issue_type' => $issue['type'],
-                'severity' => $issue['severity'],
-                'reason' => $validation['reason'],
-                'external_files' => $validation['external_files'],
-                'affected_files_count' => count($issue['affected_files'] ?? []),
-            ]);
-
-            return; // Exit early - don't attempt fix
-        }
-
-        // Log that we're proceeding with fixable issue
-        if (! empty($validation['external_files'])) {
-            Log::info('[Paladin] Issue is fixable - proceeding with fix', [
-                'issue_id' => $issue['id'],
-                'internal_files_count' => count($validation['internal_files']),
-                'external_files_count' => count($validation['external_files']),
-                'internal_files' => $validation['internal_files'],
-            ]);
-        }
-
-        $maxAttempts = config('paladin.testing.max_fix_attempts', 3);
-
-        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
-            try {
-                $healingAttempt = $this->createHealingAttempt($issue, $attempt);
-
-                if ($this->attemptFix($healingAttempt, $issue, $attempt, $maxAttempts)) {
-                    Log::info('[Paladin] Issue fixed successfully', [
-                        'issue_id' => $issue['id'],
-                        'attempt' => $attempt,
-                    ]);
-
-                    return;
-                }
-
-                if ($attempt < $maxAttempts) {
-                    Log::info('[Paladin] Fix attempt failed, will retry', [
-                        'issue_id' => $issue['id'],
-                        'attempt' => $attempt,
-                        'max_attempts' => $maxAttempts,
-                    ]);
-                }
-            } catch (\Exception $e) {
-                Log::error('[Paladin] Fix attempt error', [
-                    'issue_id' => $issue['id'],
-                    'attempt' => $attempt,
-                    'error' => $e->getMessage(),
-                ]);
-
-                if (isset($healingAttempt)) {
-                    $healingAttempt->markAsFailed($e->getMessage());
-                }
-            }
-        }
-
-        Log::warning('[Paladin] All fix attempts exhausted', [
-            'issue_id' => $issue['id'],
-            'attempts' => $maxAttempts,
-        ]);
-    }
-
-    /**
-     * Create a healing attempt record.
-     */
-    protected function createHealingAttempt(array $issue, int $attemptNumber): HealingAttempt
-    {
-        return HealingAttempt::create([
-            'issue_id' => $issue['id'],
-            'issue_type' => $issue['type'],
-            'severity' => $issue['severity'],
-            'message' => $issue['message'],
-            'stack_trace' => $issue['stack_trace'] ?? null,
-            'affected_files' => $issue['affected_files'] ?? [],
-            'attempt_number' => $attemptNumber,
-            'status' => 'pending',
-        ]);
-    }
-
-    /**
-     * Attempt to fix an issue.
-     */
-    protected function attemptFix(
-        HealingAttempt $healingAttempt,
-        array $issue,
-        int $attemptNumber,
-        int $maxAttempts
-    ): bool {
-        $healingAttempt->markAsInProgress();
-
-        $worktreeManager = app(WorktreeManager::class);
-        $worktree = null;
-
-        try {
-            // Create worktree
-            $worktree = $worktreeManager->create($issue['id']);
-            $healingAttempt->update(['worktree_path' => $worktree['path']]);
-
-            // Setup worktree (composer install, env file, etc.)
-            if (config('paladin.worktree.setup.enabled', true)) {
-                $worktreeSetup = app(WorktreeSetup::class);
-                $setupSuccess = $worktreeSetup->setup($worktree['path']);
-
-                if (! $setupSuccess) {
-                    $healingAttempt->markAsFailed('Worktree setup failed');
-
-                    // Cleanup failed worktree
-                    if ($worktreeManager->exists($worktree['path'])) {
-                        $worktreeManager->remove($worktree['path']);
-                    }
-
-                    return false;
-                }
-            }
-
-            // Generate prompt for OpenCode
-            // For retry attempts, fetch the previous attempt's test output
-            $testFailureOutput = null;
-            if ($attemptNumber > 1) {
-                $previousAttempt = HealingAttempt::where('issue_id', $issue['id'])
-                    ->where('attempt_number', $attemptNumber - 1)
-                    ->first();
-                $testFailureOutput = $previousAttempt?->test_output;
-            }
-
-            $evaluator = $this->getEvaluator();
-            $prompt = $evaluator->generatePrompt($issue, $testFailureOutput);
-
-            $healingAttempt->update(['opencode_prompt' => $prompt]);
-
-            // Run OpenCode
-            $opencodeRunner = app(OpenCodeRunner::class);
-            $opencodeResult = $opencodeRunner->run($prompt, $worktree['path']);
-
-            $healingAttempt->update(['opencode_output' => $opencodeResult['output']]);
-
-            if (! $opencodeResult['success']) {
-                $healingAttempt->markAsFailed('OpenCode execution failed');
-
-                return false;
-            }
-
-            // Run tests (unless skipped via config)
-            $skipTests = config('paladin.testing.skip_tests', false);
-
-            if ($skipTests) {
-                Log::info('[Paladin] Skipping test execution (PALADIN_SKIP_TESTS=true)');
-
-                $healingAttempt->update([
-                    'test_output' => 'Tests skipped (PALADIN_SKIP_TESTS=true)',
-                ]);
-
-                // Tests skipped - proceed directly to commit and PR
-                $success = $this->commitAndCreatePR($healingAttempt, $issue, $worktree['path'], $attemptNumber, $maxAttempts);
-
-                if ($success) {
-                    // Cleanup worktree if configured
-                    if (config('paladin.worktree.cleanup_after_success', true)) {
-                        $worktreeManager->remove($worktree['path']);
-                    }
-                }
-
-                return $success;
-            }
-
-            // Run tests
-            $testRunner = app(TestRunner::class);
-            $testResult = $testRunner->run($worktree['path']);
-
-            $healingAttempt->update(['test_output' => $testResult['output']]);
-
-            if (! $testResult['passed']) {
-                $healingAttempt->markAsFailed('Tests failed after fix');
-
-                return false;
-            }
-
-            // Tests passed! Commit and create PR
-            $success = $this->commitAndCreatePR($healingAttempt, $issue, $worktree['path'], $attemptNumber, $maxAttempts);
-
-            if ($success) {
-                // Cleanup worktree if configured
-                if (config('paladin.worktree.cleanup_after_success', true)) {
-                    $worktreeManager->remove($worktree['path']);
-                }
-            }
-
-            return $success;
-        } catch (\Exception $e) {
-            if ($worktree && $worktreeManager->exists($worktree['path'])) {
-                // Keep worktree for manual inspection on failure
-                Log::info('[Paladin] Keeping worktree for inspection', [
-                    'path' => $worktree['path'],
-                ]);
-            }
-
-            throw $e;
-        }
-    }
-
-    /**
-     * Commit changes and create a pull request.
-     */
-    protected function commitAndCreatePR(
-        HealingAttempt $healingAttempt,
-        array $issue,
-        string $worktreePath,
-        int $attemptNumber,
-        int $maxAttempts
-    ): bool {
-        $git = app(GitService::class);
-
-        // Create branch name
-        $branchPrefix = config('paladin.git.branch_prefix', 'paladin/fix');
-        $branchName = "{$branchPrefix}-".substr($issue['id'], 0, 8);
-
-        // Create and checkout branch
-        if (! $git->createBranch($worktreePath, $branchName)) {
-            $healingAttempt->markAsFailed('Failed to create branch');
-
-            return false;
-        }
-
-        // Generate commit message and commit
-        $commitMessage = $this->generateCommitMessage($issue, $attemptNumber, $maxAttempts);
-        if (! $git->commit($worktreePath, $commitMessage)) {
-            $healingAttempt->markAsFailed('Failed to commit changes');
-
-            return false;
-        }
-
-        $healingAttempt->update(['branch_name' => $branchName]);
-
-        // Check if remote exists
-        $hasRemote = $git->hasRemote($worktreePath);
-
-        // Push branch if remote is configured
-        if ($hasRemote) {
-            if (! $git->push($worktreePath, $branchName)) {
-                $healingAttempt->markAsFailed('Failed to push branch');
-
-                return false;
-            }
-
-            // Create PR only if push succeeded
-            $prManager = app(PullRequestManager::class);
-            $prTitle = $this->generatePRTitle($issue);
-            $prBody = $this->generatePRBody($issue, $attemptNumber, $maxAttempts);
-
-            $prUrl = $prManager->createPullRequest($branchName, $prTitle, $prBody);
-
-            if ($prUrl) {
-                $healingAttempt->markAsFixed($prUrl);
-
-                return true;
-            }
-
-            $healingAttempt->markAsFailed('Failed to create pull request');
-
-            return false;
-        } else {
-            // No remote configured - mark as fixed locally
-            Log::info('[Paladin] No remote configured, fix committed locally', [
-                'branch' => $branchName,
-                'worktree_path' => $worktreePath,
-            ]);
-
-            $healingAttempt->markAsFixed(null);
-
-            return true;
-        }
-    }
-
-    /**
-     * Generate commit message from template.
-     */
-    protected function generateCommitMessage(array $issue, int $attemptNumber, int $maxAttempts): string
-    {
-        $template = config('paladin.git.commit_message_template');
-
-        return strtr($template, [
-            '{issue_title}' => $issue['title'],
-            '{issue_description}' => $issue['message'],
-            '{severity}' => $issue['severity'],
-            '{attempt_number}' => $attemptNumber,
-            '{max_attempts}' => $maxAttempts,
-        ]);
-    }
-
-    /**
-     * Generate PR title from template.
-     */
-    protected function generatePRTitle(array $issue): string
-    {
-        $template = config('paladin.git.pr_title_template');
-
-        return strtr($template, [
-            '{issue_title}' => $issue['title'],
-        ]);
-    }
-
-    /**
-     * Generate PR body from template.
-     */
-    protected function generatePRBody(array $issue, int $attemptNumber, int $maxAttempts): string
-    {
-        $template = config('paladin.git.pr_body_template');
-
-        return strtr($template, [
-            '{issue_type}' => $issue['type'],
-            '{severity}' => strtoupper($issue['severity']),
-            '{affected_files}' => implode(', ', $issue['affected_files'] ?? []),
-            '{issue_description}' => $issue['message'],
-            '{stack_trace}' => $issue['stack_trace'] ?? 'N/A',
-            '{attempt_number}' => $attemptNumber,
-            '{max_attempts}' => $maxAttempts,
-        ]);
     }
 
     /**
