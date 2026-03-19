@@ -1,3 +1,6 @@
+
+![Laravel Paladin Banner](https://github.com/DerKekser/laravel-paladin/blob/assets/Paladin-Banner.jpg?raw=true)
+
 # 🛡️ Laravel Paladin
 
 **Autonomous Self-Healing for Laravel Applications**
