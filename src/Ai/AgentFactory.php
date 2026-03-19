@@ -42,7 +42,7 @@ class AgentFactory
      */
     protected function validateAndGetProvider(): Lab
     {
-        $providerName = config('paladin.ai.provider');
+        $providerName = config('paladin.evaluators.laravel-ai.provider');
 
         if (! $providerName) {
             throw new \RuntimeException(
@@ -114,7 +114,7 @@ class AgentFactory
         $missing = [];
 
         foreach ($requirements[$providerLower] as $configKey) {
-            $value = config("paladin.ai.credentials.{$configKey}");
+            $value = config("paladin.evaluators.laravel-ai.credentials.{$configKey}");
             if (empty($value)) {
                 // Convert config key to env var name for error message
                 $envVar = strtoupper($configKey);

@@ -7,9 +7,9 @@ use Kekser\LaravelPaladin\Contracts\IssueEvaluator;
 
 test('it creates laravel ai evaluator by default', function () {
     config([
-        'paladin.ai.evaluator' => 'laravel-ai',
-        'paladin.ai.provider' => 'gemini',
-        'paladin.ai.credentials.gemini_api_key' => 'test-key',
+        'paladin.evaluator' => 'laravel-ai',
+        'paladin.evaluators.laravel-ai.provider' => 'gemini',
+        'paladin.evaluators.laravel-ai.credentials.gemini_api_key' => 'test-key',
     ]);
 
     $factory = app(EvaluatorFactory::class);
@@ -20,7 +20,7 @@ test('it creates laravel ai evaluator by default', function () {
 });
 
 test('it creates opencode evaluator', function () {
-    config(['paladin.ai.evaluator' => 'opencode']);
+    config(['paladin.evaluator' => 'opencode']);
 
     $factory = app(EvaluatorFactory::class);
     $evaluator = $factory->create();
@@ -31,9 +31,9 @@ test('it creates opencode evaluator', function () {
 
 test('it defaults to laravel ai when evaluator not set', function () {
     config([
-        'paladin.ai.evaluator' => null,
-        'paladin.ai.provider' => 'gemini',
-        'paladin.ai.credentials.gemini_api_key' => 'test-key',
+        'paladin.evaluator' => null,
+        'paladin.evaluators.laravel-ai.provider' => 'gemini',
+        'paladin.evaluators.laravel-ai.credentials.gemini_api_key' => 'test-key',
     ]);
 
     $factory = app(EvaluatorFactory::class);
@@ -61,14 +61,14 @@ test('it can explicitly set the evaluator', function () {
 });
 
 test('it throws exception for unsupported evaluator', function () {
-    config(['paladin.ai.evaluator' => 'unsupported-evaluator']);
+    config(['paladin.evaluator' => 'unsupported-evaluator']);
 
     $factory = app(EvaluatorFactory::class);
     $factory->create();
 })->throws(InvalidArgumentException::class, 'Unsupported AI evaluator: unsupported-evaluator');
 
 test('it is case insensitive', function () {
-    config(['paladin.ai.evaluator' => 'OpenCode']);
+    config(['paladin.evaluator' => 'OpenCode']);
 
     $factory = app(EvaluatorFactory::class);
     $evaluator = $factory->create();
@@ -78,13 +78,50 @@ test('it is case insensitive', function () {
 
 test('it creates laravel ai evaluator case insensitive', function () {
     config([
-        'paladin.ai.evaluator' => 'Laravel-AI',
-        'paladin.ai.provider' => 'gemini',
-        'paladin.ai.credentials.gemini_api_key' => 'test-key',
+        'paladin.evaluator' => 'Laravel-AI',
+        'paladin.evaluators.laravel-ai.provider' => 'gemini',
+        'paladin.evaluators.laravel-ai.credentials.gemini_api_key' => 'test-key',
     ]);
 
     $factory = app(EvaluatorFactory::class);
     $evaluator = $factory->create();
 
     expect($evaluator)->toBeInstanceOf(LaravelAiEvaluator::class);
+});
+
+test('it can use a custom evaluator via configuration', function () {
+    $customEvaluator = new class implements IssueEvaluator
+    {
+        public function analyzeIssues(array $logEntries): array
+        {
+            return [];
+        }
+
+        public function generatePrompt(array $issue, ?string $testFailureOutput = null): string
+        {
+            return '';
+        }
+
+        public function isConfigured(): bool
+        {
+            return true;
+        }
+
+        public function getConfigurationErrors(): array
+        {
+            return [];
+        }
+    };
+
+    config([
+        'paladin.evaluator' => 'custom',
+        'paladin.evaluators.custom.driver' => get_class($customEvaluator),
+    ]);
+
+    app()->instance(get_class($customEvaluator), $customEvaluator);
+
+    $factory = app(EvaluatorFactory::class);
+    $result = $factory->create();
+
+    expect($result)->toBe($customEvaluator);
 });

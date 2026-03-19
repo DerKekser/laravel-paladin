@@ -7,8 +7,8 @@ use Laravel\Ai\Enums\Lab;
 
 it('creates issue analyzer', function () {
     config([
-        'paladin.ai.provider' => 'gemini',
-        'paladin.ai.credentials.gemini_api_key' => 'test-key',
+        'paladin.evaluators.laravel-ai.provider' => 'gemini',
+        'paladin.evaluators.laravel-ai.credentials.gemini_api_key' => 'test-key',
     ]);
 
     $factory = app(AgentFactory::class);
@@ -19,8 +19,8 @@ it('creates issue analyzer', function () {
 
 it('creates prompt generator', function () {
     config([
-        'paladin.ai.provider' => 'gemini',
-        'paladin.ai.credentials.gemini_api_key' => 'test-key',
+        'paladin.evaluators.laravel-ai.provider' => 'gemini',
+        'paladin.evaluators.laravel-ai.credentials.gemini_api_key' => 'test-key',
     ]);
 
     $factory = app(AgentFactory::class);
@@ -37,21 +37,21 @@ it('creates prompt generator', function () {
 });
 
 it('throws exception when provider not configured', function () {
-    config(['paladin.ai.provider' => null]);
+    config(['paladin.evaluators.laravel-ai.provider' => null]);
 
     app(AgentFactory::class);
 })->throws(RuntimeException::class, 'AI provider not configured');
 
 it('throws exception for unsupported provider', function () {
-    config(['paladin.ai.provider' => 'unsupported-provider']);
+    config(['paladin.evaluators.laravel-ai.provider' => 'unsupported-provider']);
 
     app(AgentFactory::class);
 })->throws(InvalidArgumentException::class, 'Unsupported AI provider');
 
 it('validates gemini credentials', function () {
     config([
-        'paladin.ai.provider' => 'gemini',
-        'paladin.ai.credentials.gemini_api_key' => '', // Empty key
+        'paladin.evaluators.laravel-ai.provider' => 'gemini',
+        'paladin.evaluators.laravel-ai.credentials.gemini_api_key' => '', // Empty key
     ]);
 
     app(AgentFactory::class);
@@ -59,9 +59,9 @@ it('validates gemini credentials', function () {
 
 it('validates multiple missing credentials', function () {
     config([
-        'paladin.ai.provider' => 'azure',
-        'paladin.ai.credentials.azure_openai_api_key' => '',
-        'paladin.ai.credentials.azure_openai_endpoint' => '',
+        'paladin.evaluators.laravel-ai.provider' => 'azure',
+        'paladin.evaluators.laravel-ai.credentials.azure_openai_api_key' => '',
+        'paladin.evaluators.laravel-ai.credentials.azure_openai_endpoint' => '',
     ]);
 
     app(AgentFactory::class);
@@ -69,7 +69,7 @@ it('validates multiple missing credentials', function () {
 
 it('handles ollama provider without credentials', function () {
     config([
-        'paladin.ai.provider' => 'ollama',
+        'paladin.evaluators.laravel-ai.provider' => 'ollama',
     ]);
 
     $factory = app(AgentFactory::class);
@@ -81,9 +81,9 @@ it('handles ollama provider without credentials', function () {
 });
 
 it('supports all major providers', function ($providerName, $expectedLab, $credentials = []) {
-    config(['paladin.ai.provider' => $providerName]);
+    config(['paladin.evaluators.laravel-ai.provider' => $providerName]);
     foreach ($credentials as $key => $value) {
-        config(["paladin.ai.credentials.$key" => $value]);
+        config(["paladin.evaluators.laravel-ai.credentials.$key" => $value]);
     }
 
     $factory = app(AgentFactory::class);

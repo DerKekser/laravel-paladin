@@ -47,9 +47,10 @@ abstract class TestCase extends Orchestra
 
         // Configure Paladin for testing
         $app['config']->set('paladin.enabled', true);
-        $app['config']->set('paladin.ai.provider', 'gemini');
-        $app['config']->set('paladin.ai.model', 'gemini-2.0-flash-exp');
-        $app['config']->set('paladin.ai.temperature', 0.7);
+        $app['config']->set('paladin.evaluator', 'laravel-ai');
+        $app['config']->set('paladin.evaluators.laravel-ai.provider', 'gemini');
+        $app['config']->set('paladin.evaluators.laravel-ai.model', 'gemini-2.0-flash-exp');
+        $app['config']->set('paladin.evaluators.laravel-ai.temperature', 0.7);
 
         $app['config']->set('paladin.log.channels', ['stack']);
         $app['config']->set('paladin.log.levels', ['error', 'critical', 'alert', 'emergency']);

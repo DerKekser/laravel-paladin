@@ -3,10 +3,7 @@
 namespace Kekser\LaravelPaladin\Services;
 
 use Kekser\LaravelPaladin\Contracts\PullRequestDriver;
-use Kekser\LaravelPaladin\Drivers\AzureDevOps\AzureDevOpsPRDriver;
 use Kekser\LaravelPaladin\Drivers\Composite\CompositePullRequestDriver;
-use Kekser\LaravelPaladin\Drivers\GitHub\GitHubPRDriver;
-use Kekser\LaravelPaladin\Drivers\Mail\MailNotificationDriver;
 use RuntimeException;
 
 class PullRequestManager

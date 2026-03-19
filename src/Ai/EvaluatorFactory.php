@@ -3,8 +3,6 @@
 namespace Kekser\LaravelPaladin\Ai;
 
 use InvalidArgumentException;
-use Kekser\LaravelPaladin\Ai\LaravelAi\LaravelAiEvaluator;
-use Kekser\LaravelPaladin\Ai\Opencode\OpenCodeEvaluator;
 use Kekser\LaravelPaladin\Contracts\IssueEvaluator;
 
 class EvaluatorFactory
@@ -23,15 +21,18 @@ class EvaluatorFactory
             return $this->evaluator;
         }
 
-        $evaluatorName = config('paladin.ai.evaluator', 'laravel-ai') ?: 'laravel-ai';
+        $evaluatorName = strtolower(config('paladin.evaluator', 'laravel-ai') ?: 'laravel-ai');
 
-        $this->evaluator = match (strtolower($evaluatorName)) {
-            'laravel-ai' => app(LaravelAiEvaluator::class),
-            'opencode' => app(OpenCodeEvaluator::class),
-            default => throw new InvalidArgumentException(
-                "Unsupported AI evaluator: {$evaluatorName}. Supported evaluators: laravel-ai, opencode"
-            ),
-        };
+        $config = config("paladin.evaluators.{$evaluatorName}");
+        $class = is_array($config) ? ($config['driver'] ?? null) : $config;
+
+        if (! $class || ! class_exists($class)) {
+            throw new InvalidArgumentException(
+                "Unsupported AI evaluator: {$evaluatorName}. Check your config/paladin.php configuration."
+            );
+        }
+
+        $this->evaluator = app($class);
 
         return $this->evaluator;
     }

@@ -1,7 +1,6 @@
 <?php
 
 use Kekser\LaravelPaladin\Contracts\PullRequestDriver;
-use Kekser\LaravelPaladin\Drivers\AzureDevOps\AzureDevOpsPRDriver;
 use Kekser\LaravelPaladin\Drivers\Composite\CompositePullRequestDriver;
 use Kekser\LaravelPaladin\Drivers\GitHub\GitHubPRDriver;
 use Kekser\LaravelPaladin\Drivers\Mail\MailNotificationDriver;
@@ -42,7 +41,6 @@ test('it always returns a composite driver', function () {
 
     expect($driver)->toBeInstanceOf(CompositePullRequestDriver::class);
 });
-
 
 test('it throws exception for unknown provider', function () {
     config(['paladin.pr_provider' => 'unknown']);
@@ -107,19 +105,29 @@ test('it returns null when no driver configured', function () {
 });
 
 test('it can use a custom driver via configuration', function () {
-    $customDriver = new class implements PullRequestDriver {
-        public function createPullRequest(string $branch, string $title, string $body, string $baseBranch = 'main'): ?string {
+    $customDriver = new class implements PullRequestDriver
+    {
+        public function createPullRequest(string $branch, string $title, string $body, string $baseBranch = 'main'): ?string
+        {
             return 'http://custom.pr/1';
         }
-        public function isConfigured(): bool { return true; }
-        public function getConfigurationErrors(): array { return []; }
+
+        public function isConfigured(): bool
+        {
+            return true;
+        }
+
+        public function getConfigurationErrors(): array
+        {
+            return [];
+        }
     };
 
     config([
         'paladin.pr_provider' => 'custom',
         'paladin.providers.custom' => [
             'driver' => get_class($customDriver),
-        ]
+        ],
     ]);
 
     app()->instance(get_class($customDriver), $customDriver);

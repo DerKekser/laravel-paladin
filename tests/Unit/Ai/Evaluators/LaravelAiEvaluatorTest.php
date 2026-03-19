@@ -8,8 +8,8 @@ use Kekser\LaravelPaladin\Contracts\IssueEvaluator;
 
 test('it implements issue evaluator contract', function () {
     config([
-        'paladin.ai.provider' => 'gemini',
-        'paladin.ai.credentials.gemini_api_key' => 'test-key',
+        'paladin.evaluators.laravel-ai.provider' => 'gemini',
+        'paladin.evaluators.laravel-ai.credentials.gemini_api_key' => 'test-key',
     ]);
 
     $evaluator = app(LaravelAiEvaluator::class);
@@ -19,8 +19,8 @@ test('it implements issue evaluator contract', function () {
 
 test('it reports configured when provider is valid', function () {
     config([
-        'paladin.ai.provider' => 'gemini',
-        'paladin.ai.credentials.gemini_api_key' => 'test-key',
+        'paladin.evaluators.laravel-ai.provider' => 'gemini',
+        'paladin.evaluators.laravel-ai.credentials.gemini_api_key' => 'test-key',
     ]);
 
     $evaluator = app(LaravelAiEvaluator::class);
@@ -30,7 +30,7 @@ test('it reports configured when provider is valid', function () {
 });
 
 test('it reports not configured when provider missing', function () {
-    config(['paladin.ai.provider' => null]);
+    config(['paladin.evaluators.laravel-ai.provider' => null]);
 
     // With lazy-loading, the constructor no longer throws.
     // Instead, getConfigurationErrors() should report the issue.
@@ -44,8 +44,8 @@ test('it reports not configured when provider missing', function () {
 
 test('it reports not configured when credentials missing', function () {
     config([
-        'paladin.ai.provider' => 'gemini',
-        'paladin.ai.credentials.gemini_api_key' => '',
+        'paladin.evaluators.laravel-ai.provider' => 'gemini',
+        'paladin.evaluators.laravel-ai.credentials.gemini_api_key' => '',
     ]);
 
     // With lazy-loading, the constructor no longer throws.
@@ -57,7 +57,7 @@ test('it reports not configured when credentials missing', function () {
 });
 
 test('it reports configuration errors', function () {
-    config(['paladin.ai.provider' => null]);
+    config(['paladin.evaluators.laravel-ai.provider' => null]);
 
     $evaluator = app(LaravelAiEvaluator::class);
 
@@ -68,8 +68,8 @@ test('it reports configuration errors', function () {
 
 test('it reports empty errors when properly configured', function () {
     config([
-        'paladin.ai.provider' => 'gemini',
-        'paladin.ai.credentials.gemini_api_key' => 'test-key',
+        'paladin.evaluators.laravel-ai.provider' => 'gemini',
+        'paladin.evaluators.laravel-ai.credentials.gemini_api_key' => 'test-key',
     ]);
 
     $evaluator = app(LaravelAiEvaluator::class);
