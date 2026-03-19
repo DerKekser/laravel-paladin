@@ -2,9 +2,19 @@
 
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
-use Kekser\LaravelPaladin\Jobs\ProcessSelfHealingJob;
 use Kekser\LaravelPaladin\Models\HealingAttempt;
+use Kekser\LaravelPaladin\Pr\PullRequestManager;
+use Kekser\LaravelPaladin\Services\FileBoundaryValidator;
+use Kekser\LaravelPaladin\Services\GitService;
+use Kekser\LaravelPaladin\Services\IssuePrioritizer;
 use Kekser\LaravelPaladin\Services\LogScanner;
+use Kekser\LaravelPaladin\Services\OpenCodeRunner;
+use Kekser\LaravelPaladin\Services\SelfHealingOrchestrator;
+use Kekser\LaravelPaladin\Services\TemplateGenerator;
+use Kekser\LaravelPaladin\Services\TestRunner;
+use Kekser\LaravelPaladin\Services\WorktreeManager;
+use Kekser\LaravelPaladin\Services\WorktreeSetup;
+use Mockery;
 
 beforeEach(function () {
     $this->testLogPath = storage_path('logs/test-paladin.log');
@@ -95,12 +105,33 @@ test('it creates skipped healing attempt for external issues', function () {
         'log_level' => 'error',
     ];
 
-    // Simulate processing this issue
-    $job = new ProcessSelfHealingJob([]);
-    $reflector = new ReflectionClass($job);
-    $method = $reflector->getMethod('processIssue');
-    $method->setAccessible(true);
-    $method->invoke($job, $issue);
+    // Mock the FileBoundaryValidator to return external-only validation
+    $mockValidator = Mockery::mock(FileBoundaryValidator::class);
+    $mockValidator->shouldReceive('analyzeIssue')
+        ->with($issue['affected_files'])
+        ->andReturn([
+            'is_fixable' => false,
+            'reason' => 'All affected files are outside project boundaries',
+            'internal_files' => [],
+            'external_files' => $issue['affected_files'],
+        ]);
+    $this->app->instance(FileBoundaryValidator::class, $mockValidator);
+
+    // Create orchestrator with mocked dependencies
+    $orchestrator = new SelfHealingOrchestrator(
+        new IssuePrioritizer,
+        new TemplateGenerator,
+        $mockValidator,
+        Mockery::mock(WorktreeManager::class),
+        Mockery::mock(WorktreeSetup::class),
+        Mockery::mock(OpenCodeRunner::class),
+        Mockery::mock(TestRunner::class),
+        Mockery::mock(GitService::class),
+        Mockery::mock(PullRequestManager::class)
+    );
+
+    // Process the issue through orchestrator
+    $orchestrator->processIssues([$issue]);
 
     // Assert healing attempt was created with 'skipped' status
     $this->assertDatabaseHas('healing_attempts', [
@@ -132,17 +163,36 @@ test('it processes fixable issues with internal files', function () {
         'log_level' => 'error',
     ];
 
+    // Mock the FileBoundaryValidator to return fixable validation
+    $mockValidator = Mockery::mock(FileBoundaryValidator::class);
+    $mockValidator->shouldReceive('analyzeIssue')
+        ->with($issue['affected_files'])
+        ->andReturn([
+            'is_fixable' => true,
+            'reason' => '',
+            'internal_files' => $issue['affected_files'],
+            'external_files' => [],
+        ]);
+    $this->app->instance(FileBoundaryValidator::class, $mockValidator);
+
     // Mock dependencies to prevent actual fix attempts
     Config::set('paladin.testing.max_fix_attempts', 0);
 
-    $job = new ProcessSelfHealingJob([]);
-    $reflector = new ReflectionClass($job);
-    $method = $reflector->getMethod('processIssue');
-    $method->setAccessible(true);
+    // Create orchestrator with mocked dependencies
+    $orchestrator = new SelfHealingOrchestrator(
+        new IssuePrioritizer,
+        new TemplateGenerator,
+        $mockValidator,
+        Mockery::mock(WorktreeManager::class),
+        Mockery::mock(WorktreeSetup::class),
+        Mockery::mock(OpenCodeRunner::class),
+        Mockery::mock(TestRunner::class),
+        Mockery::mock(GitService::class),
+        Mockery::mock(PullRequestManager::class)
+    );
 
-    // Should NOT skip this issue (has internal files)
-    // Will attempt to process but max_attempts is 0 so won't create healing attempt
-    $method->invoke($job, $issue);
+    // Process the issue - should NOT skip
+    $orchestrator->processIssues([$issue]);
 
     // Verify it didn't create a 'skipped' attempt
     $this->assertDatabaseMissing('healing_attempts', [
