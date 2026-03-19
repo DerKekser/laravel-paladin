@@ -10,7 +10,7 @@ beforeEach(function () {
     $this->analyzerMock = Mockery::mock(IssueAnalyzer::class);
     $this->generatorMock = Mockery::mock(PromptGenerator::class);
 
-    $this->evaluator = new OpenCodeEvaluator;
+    $this->evaluator = app(OpenCodeEvaluator::class);
 
     $reflection = new ReflectionClass(OpenCodeEvaluator::class);
 

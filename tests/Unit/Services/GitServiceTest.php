@@ -6,7 +6,7 @@ use Kekser\LaravelPaladin\Services\GitService;
 
 beforeEach(function () {
     Process::preventStrayProcesses();
-    $this->gitService = new GitService;
+    $this->gitService = app(GitService::class);
     $this->tempDir = sys_get_temp_dir().'/paladin_test_'.uniqid();
     mkdir($this->tempDir, 0777, true);
 });

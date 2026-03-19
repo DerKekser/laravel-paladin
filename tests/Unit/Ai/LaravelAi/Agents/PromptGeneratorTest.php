@@ -113,8 +113,8 @@ test('it builds correct test failure context', function () {
 });
 
 test('it uses configured model and temperature', function () {
-    Config::set('paladin.ai.model', 'test-model');
-    Config::set('paladin.ai.temperature', 0.5);
+    Config::set('paladin.evaluators.laravel-ai.model', 'test-model');
+    Config::set('paladin.evaluators.laravel-ai.temperature', 0.5);
 
     $reflection = new \ReflectionClass($this->generator);
 
@@ -131,8 +131,8 @@ test('it provides default values for model and temperature', function () {
     // We can't easily "unset" config in a way that it returns the default parameter of config()
     // if it was already set in the environment or previous tests.
     // But we can set it to a known value and verify that.
-    Config::set('paladin.ai.model', 'default-model');
-    Config::set('paladin.ai.temperature', 0.8);
+    Config::set('paladin.evaluators.laravel-ai.model', 'default-model');
+    Config::set('paladin.evaluators.laravel-ai.temperature', 0.8);
 
     $reflection = new \ReflectionClass($this->generator);
 

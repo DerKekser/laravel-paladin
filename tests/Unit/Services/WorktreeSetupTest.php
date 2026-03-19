@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Process;
 use Kekser\LaravelPaladin\Services\WorktreeSetup;
 
 beforeEach(function () {
-    $this->setup = new WorktreeSetup;
+    $this->setup = app(WorktreeSetup::class);
 
     $this->tempDir = sys_get_temp_dir().'/paladin_test_'.uniqid();
     mkdir($this->tempDir, 0777, true);

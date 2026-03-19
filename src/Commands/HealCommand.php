@@ -5,7 +5,7 @@ namespace Kekser\LaravelPaladin\Commands;
 use Illuminate\Console\Command;
 use Kekser\LaravelPaladin\Ai\EvaluatorFactory;
 use Kekser\LaravelPaladin\Jobs\ProcessSelfHealingJob;
-use Kekser\LaravelPaladin\Services\PullRequestManager;
+use Kekser\LaravelPaladin\Pr\PullRequestManager;
 
 class HealCommand extends Command
 {

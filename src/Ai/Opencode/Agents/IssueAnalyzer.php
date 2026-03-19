@@ -18,7 +18,7 @@ class IssueAnalyzer
 
     public function __construct()
     {
-        $this->runner = new OpenCodeRunner;
+        $this->runner = app(OpenCodeRunner::class);
     }
 
     /**

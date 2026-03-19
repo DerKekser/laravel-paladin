@@ -1,51 +1,51 @@
 <?php
 
 use Kekser\LaravelPaladin\Contracts\PullRequestDriver;
-use Kekser\LaravelPaladin\Drivers\AzureDevOps\AzureDevOpsPRDriver;
-use Kekser\LaravelPaladin\Drivers\Mail\MailNotificationDriver;
-use Kekser\LaravelPaladin\Services\PullRequestManager;
+use Kekser\LaravelPaladin\Pr\Drivers\Composite\CompositePullRequestDriver;
+use Kekser\LaravelPaladin\Pr\Drivers\GitHub\GitHubPRDriver;
+use Kekser\LaravelPaladin\Pr\Drivers\Mail\MailNotificationDriver;
+use Kekser\LaravelPaladin\Pr\PullRequestManager;
 
-test('it uses github driver when configured', function () {
-    config(['paladin.pr_provider' => 'github']);
+test('it uses configured drivers via composite driver', function () {
+    config(['paladin.pr_provider' => 'github,mail']);
 
-    $manager = new PullRequestManager;
-    $driver1 = $manager->getDriver();
-    $driver2 = $manager->getDriver();
+    $manager = app(PullRequestManager::class);
+    $driver = $manager->getDriver();
 
-    expect($driver1)->toBe($driver2);
-});
-
-test('it can explicitly set the driver', function () {
-    $manager = new PullRequestManager;
-    $driver = Mockery::mock(PullRequestDriver::class);
-
-    $manager->setDriver($driver);
-
-    expect($manager->getDriver())->toBe($driver);
+    expect($driver)->toBeInstanceOf(CompositePullRequestDriver::class);
 });
 
 test('it uses azure driver when configured', function () {
     config(['paladin.pr_provider' => 'azure-devops']);
 
-    $manager = new PullRequestManager;
+    $manager = app(PullRequestManager::class);
     $driver = $manager->getDriver();
 
-    expect($driver)->toBeInstanceOf(AzureDevOpsPRDriver::class);
+    expect($driver)->toBeInstanceOf(CompositePullRequestDriver::class);
 });
 
 test('it uses mail driver when configured', function () {
     config(['paladin.pr_provider' => 'mail']);
 
-    $manager = new PullRequestManager;
+    $manager = app(PullRequestManager::class);
     $driver = $manager->getDriver();
 
-    expect($driver)->toBeInstanceOf(MailNotificationDriver::class);
+    expect($driver)->toBeInstanceOf(CompositePullRequestDriver::class);
+});
+
+test('it always returns a composite driver', function () {
+    config(['paladin.pr_provider' => 'github']);
+
+    $manager = app(PullRequestManager::class);
+    $driver = $manager->getDriver();
+
+    expect($driver)->toBeInstanceOf(CompositePullRequestDriver::class);
 });
 
 test('it throws exception for unknown provider', function () {
     config(['paladin.pr_provider' => 'unknown']);
 
-    $manager = new PullRequestManager;
+    $manager = app(PullRequestManager::class);
     $manager->createPullRequest('test-branch', 'Test PR', 'Test body');
 })->throws(RuntimeException::class, 'Unknown PR provider');
 
@@ -53,28 +53,43 @@ test('it uses default base branch', function () {
     config(['paladin.pr_provider' => 'github']);
     config(['paladin.git.default_branch' => 'develop']);
 
-    $mockDriver = Mockery::mock(PullRequestDriver::class);
+    $mockDriver = Mockery::mock(GitHubPRDriver::class);
     $mockDriver->shouldReceive('createPullRequest')
         ->with('test-branch', 'Test PR', 'Test body', 'develop')
         ->once()
         ->andReturn('http://github.com/pr/1');
 
-    $manager = new PullRequestManager;
-    $manager->setDriver($mockDriver);
+    app()->instance(GitHubPRDriver::class, $mockDriver);
+
+    $manager = app(PullRequestManager::class);
 
     $result = $manager->createPullRequest('test-branch', 'Test PR', 'Test body');
 
     expect($result)->toBe('http://github.com/pr/1');
 });
 
-test('it can get first available driver', function () {
-    // Configure GitHub as available
-    config(['paladin.providers.github.token' => 'test-token']);
+test('it calls multiple drivers when configured', function () {
+    config(['paladin.pr_provider' => 'github,mail']);
 
-    $manager = new PullRequestManager;
-    $driver = $manager->getFirstAvailableDriver();
+    $mockGithub = Mockery::mock(GitHubPRDriver::class);
+    $mockGithub->shouldReceive('createPullRequest')
+        ->with('test-branch', 'Test PR', 'Test body', 'main')
+        ->once()
+        ->andReturn('http://github.com/pr/1');
 
-    expect($driver)->not->toBeNull();
+    $mockMail = Mockery::mock(MailNotificationDriver::class);
+    $mockMail->shouldReceive('createPullRequest')
+        ->with('test-branch', 'Test PR', 'Test body', 'main')
+        ->once()
+        ->andReturn(null);
+
+    app()->instance(GitHubPRDriver::class, $mockGithub);
+    app()->instance(MailNotificationDriver::class, $mockMail);
+
+    $manager = app(PullRequestManager::class);
+    $result = $manager->createPullRequest('test-branch', 'Test PR', 'Test body');
+
+    expect($result)->toBe('http://github.com/pr/1');
 });
 
 test('it returns null when no driver configured', function () {
@@ -83,8 +98,42 @@ test('it returns null when no driver configured', function () {
     config(['paladin.providers.azure-devops.token' => null]);
     config(['paladin.providers.mail.to' => null]);
 
-    $manager = new PullRequestManager;
-    $driver = $manager->getFirstAvailableDriver();
+    $manager = app(PullRequestManager::class);
+    $driver = $manager->getDriver();
 
-    expect($driver)->toBeNull();
+    expect($driver->isConfigured())->toBeFalse();
+});
+
+test('it can use a custom driver via configuration', function () {
+    $customDriver = new class implements PullRequestDriver
+    {
+        public function createPullRequest(string $branch, string $title, string $body, string $baseBranch = 'main'): ?string
+        {
+            return 'http://custom.pr/1';
+        }
+
+        public function isConfigured(): bool
+        {
+            return true;
+        }
+
+        public function getConfigurationErrors(): array
+        {
+            return [];
+        }
+    };
+
+    config([
+        'paladin.pr_provider' => 'custom',
+        'paladin.providers.custom' => [
+            'driver' => get_class($customDriver),
+        ],
+    ]);
+
+    app()->instance(get_class($customDriver), $customDriver);
+
+    $manager = app(PullRequestManager::class);
+    $result = $manager->createPullRequest('test-branch', 'Test PR', 'Test body');
+
+    expect($result)->toBe('http://custom.pr/1');
 });

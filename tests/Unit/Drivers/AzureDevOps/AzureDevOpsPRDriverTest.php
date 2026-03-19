@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Kekser\LaravelPaladin\Drivers\AzureDevOps\AzureDevOpsPRDriver;
+use Kekser\LaravelPaladin\Pr\Drivers\AzureDevOps\AzureDevOpsPRDriver;
 use Kekser\LaravelPaladin\Tests\Fixtures\Helpers\CreatesTestRepository;
 
 uses(CreatesTestRepository::class);
@@ -15,7 +15,7 @@ beforeEach(function () {
         'paladin.providers.azure-devops.api_url' => 'https://dev.azure.com',
     ]);
 
-    $this->driver = new AzureDevOpsPRDriver;
+    $this->driver = app(AzureDevOpsPRDriver::class);
 
     Log::spy();
 });
@@ -26,28 +26,28 @@ test('it checks if driver is configured', function () {
 
 test('it returns false when token is missing', function () {
     config(['paladin.providers.azure-devops.token' => null]);
-    $driver = new AzureDevOpsPRDriver;
+    $driver = app(AzureDevOpsPRDriver::class);
 
     expect($driver->isConfigured())->toBeFalse();
 });
 
 test('it returns false when organization is missing', function () {
     config(['paladin.providers.azure-devops.organization' => null]);
-    $driver = new AzureDevOpsPRDriver;
+    $driver = app(AzureDevOpsPRDriver::class);
 
     expect($driver->isConfigured())->toBeFalse();
 });
 
 test('it returns false when project is missing', function () {
     config(['paladin.providers.azure-devops.project' => null]);
-    $driver = new AzureDevOpsPRDriver;
+    $driver = app(AzureDevOpsPRDriver::class);
 
     expect($driver->isConfigured())->toBeFalse();
 });
 
 test('it throws exception when not configured', function () {
     config(['paladin.providers.azure-devops.token' => null]);
-    $driver = new AzureDevOpsPRDriver;
+    $driver = app(AzureDevOpsPRDriver::class);
 
     $driver->createPullRequest('feature-branch', 'Test PR', 'Test body');
 })->throws(RuntimeException::class, 'Azure DevOps driver is not properly configured');
@@ -124,7 +124,7 @@ test('it uses configured api url', function () {
 
     Http::fake();
 
-    $driver = new AzureDevOpsPRDriver;
+    $driver = app(AzureDevOpsPRDriver::class);
 
     $originalDir = getcwd();
     chdir($testRepo);

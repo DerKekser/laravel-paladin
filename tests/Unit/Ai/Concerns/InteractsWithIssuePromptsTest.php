@@ -16,7 +16,7 @@ class InteractsWithIssuePromptsTester
 }
 
 beforeEach(function () {
-    $this->tester = new InteractsWithIssuePromptsTester;
+    $this->tester = app(InteractsWithIssuePromptsTester::class);
 });
 
 it('builds basic issue context', function () {

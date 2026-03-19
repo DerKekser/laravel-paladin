@@ -132,7 +132,7 @@ INSTRUCTIONS;
      */
     protected function getModel(): string
     {
-        return config('paladin.ai.model', 'gemini-2.0-flash-exp');
+        return config('paladin.evaluators.laravel-ai.model', 'gemini-2.0-flash-exp');
     }
 
     /**
@@ -140,6 +140,6 @@ INSTRUCTIONS;
      */
     protected function temperature(): float
     {
-        return config('paladin.ai.temperature', 0.7);
+        return config('paladin.evaluators.laravel-ai.temperature', 0.7);
     }
 }

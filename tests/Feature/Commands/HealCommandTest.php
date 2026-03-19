@@ -11,7 +11,8 @@ beforeEach(function () {
 
     // Configure Paladin with valid settings
     config([
-        'paladin.ai.provider' => 'gemini',
+        'paladin.evaluators.laravel-ai.provider' => 'gemini',
+        'paladin.evaluators.laravel-ai.credentials.gemini_api_key' => 'test-key',
         'paladin.log.channels' => ['single'],
         'paladin.pr_provider' => 'github',
         'paladin.providers.github.token' => 'github-token',
@@ -50,7 +51,7 @@ test('it runs synchronously with sync flag', function () {
 });
 
 test('it fails when ai provider not configured', function () {
-    config(['paladin.ai.provider' => null]);
+    config(['paladin.evaluators.laravel-ai.provider' => null]);
 
     $this->artisan('paladin:heal')
         ->expectsOutput('Configuration errors detected:')
@@ -61,7 +62,7 @@ test('it fails when ai provider not configured', function () {
 
 test('it fails when unsupported ai provider', function () {
     config([
-        'paladin.ai.provider' => 'unsupported-provider',
+        'paladin.evaluators.laravel-ai.provider' => 'unsupported-provider',
     ]);
 
     $this->artisan('paladin:heal')
@@ -174,7 +175,7 @@ test('it shows tip about sync flag when queued', function () {
 
 test('it displays multiple configuration errors', function () {
     config([
-        'paladin.ai.provider' => null,
+        'paladin.evaluators.laravel-ai.provider' => null,
         'paladin.log.channels' => [],
         'paladin.providers.github.token' => null,
     ]);
@@ -188,8 +189,8 @@ test('it displays multiple configuration errors', function () {
 
 test('it supports anthropic provider', function () {
     config([
-        'paladin.ai.provider' => 'anthropic',
-        'paladin.ai.credentials.anthropic_api_key' => 'claude-key',
+        'paladin.evaluators.laravel-ai.provider' => 'anthropic',
+        'paladin.evaluators.laravel-ai.credentials.anthropic_api_key' => 'claude-key',
     ]);
 
     $this->artisan('paladin:heal')
@@ -200,8 +201,8 @@ test('it supports anthropic provider', function () {
 
 test('it supports openai provider', function () {
     config([
-        'paladin.ai.provider' => 'openai',
-        'paladin.ai.credentials.openai_api_key' => 'openai-key',
+        'paladin.evaluators.laravel-ai.provider' => 'openai',
+        'paladin.evaluators.laravel-ai.credentials.openai_api_key' => 'openai-key',
     ]);
 
     $this->artisan('paladin:heal')
@@ -237,7 +238,7 @@ test('it shows stack trace in verbose mode on sync error', function () {
 });
 
 test('it validates configuration before queueing', function () {
-    config(['paladin.ai.provider' => null]);
+    config(['paladin.evaluators.laravel-ai.provider' => null]);
 
     $this->artisan('paladin:heal')
         ->expectsOutput('Configuration errors detected:')
@@ -274,7 +275,7 @@ test('it accepts mail provider with recipient', function () {
 });
 
 test('it fails when unsupported evaluator configured', function () {
-    config(['paladin.ai.evaluator' => 'unsupported-evaluator']);
+    config(['paladin.evaluator' => 'unsupported-evaluator']);
 
     $this->artisan('paladin:heal')
         ->expectsOutput('Configuration errors detected:')
@@ -285,9 +286,9 @@ test('it fails when unsupported evaluator configured', function () {
 
 test('it accepts opencode evaluator without ai provider credentials', function () {
     config([
-        'paladin.ai.evaluator' => 'opencode',
-        'paladin.ai.provider' => null,
-        'paladin.ai.credentials.gemini_api_key' => null,
+        'paladin.evaluator' => 'opencode',
+        'paladin.evaluators.laravel-ai.provider' => null,
+        'paladin.evaluators.laravel-ai.credentials.gemini_api_key' => null,
     ]);
 
     // OpenCode evaluator doesn't require AI provider credentials.

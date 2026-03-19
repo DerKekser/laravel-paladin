@@ -10,7 +10,7 @@ beforeEach(function () {
     config(['paladin.log.levels' => ['error', 'critical', 'alert', 'emergency']]);
     config(['paladin.issues.ignore_patterns' => []]);
 
-    $this->scanner = new LogScanner;
+    $this->scanner = app(LogScanner::class);
 
     // Reset cache before each test
     Cache::forget('paladin.last_scan_time');
@@ -76,7 +76,7 @@ test('it only scans entries after last scan time', function () {
 
 test('it filters by log levels', function () {
     config(['paladin.log.levels' => ['error', 'critical']]);
-    $this->scanner = new LogScanner;
+    $this->scanner = app(LogScanner::class);
 
     $logContent = "[2026-03-15 10:00:00] production.ERROR: Error message\n"
         ."[2026-03-15 10:01:00] production.CRITICAL: Critical message\n"
@@ -100,7 +100,7 @@ test('it applies ignore patterns', function () {
         '/Package .* is abandoned/',
         '/deprecated/i',
     ]]);
-    $this->scanner = new LogScanner;
+    $this->scanner = app(LogScanner::class);
 
     $logContent = "[2026-03-15 10:00:00] production.ERROR: Normal error\n"
         ."[2026-03-15 10:01:00] production.ERROR: Package foo/bar is abandoned\n"
@@ -156,7 +156,7 @@ test('it generates unique hashes for entries', function () {
 
 test('it can scan multiple log channels', function () {
     config(['paladin.log.channels' => ['stack', 'single']]);
-    $this->scanner = new LogScanner;
+    $this->scanner = app(LogScanner::class);
 
     createLogFile($this->tempLogPath, 'laravel.log', '[2026-03-15 10:00:00] production.ERROR: Error in laravel.log');
     createLogFile($this->tempLogPath, 'single.log', '[2026-03-15 10:01:00] production.ERROR: Error in single.log');
@@ -171,7 +171,7 @@ test('it can scan multiple log channels', function () {
 
 test('it handles comma separated channel configuration', function () {
     config(['paladin.log.channels' => 'stack,single,daily']);
-    $this->scanner = new LogScanner;
+    $this->scanner = app(LogScanner::class);
 
     createLogFile($this->tempLogPath, 'laravel.log', '[2026-03-15 10:00:00] production.ERROR: Stack error');
     createLogFile($this->tempLogPath, 'single.log', '[2026-03-15 10:01:00] production.ERROR: Single error');
@@ -184,7 +184,7 @@ test('it handles comma separated channel configuration', function () {
 
 test('it handles nonexistent log files gracefully', function () {
     config(['paladin.log.channels' => ['stack', 'nonexistent']]);
-    $this->scanner = new LogScanner;
+    $this->scanner = app(LogScanner::class);
 
     createLogFile($this->tempLogPath, 'laravel.log', '[2026-03-15 10:00:00] production.ERROR: Error message');
     // Don't create 'nonexistent.log'
@@ -228,7 +228,7 @@ test('it can reset last scan time', function () {
 
 test('it maps stack channel to laravel log', function () {
     config(['paladin.log.channels' => 'stack']);
-    $this->scanner = new LogScanner;
+    $this->scanner = app(LogScanner::class);
 
     createLogFile($this->tempLogPath, 'laravel.log', '[2026-03-15 10:00:00] production.ERROR: Test error');
 
@@ -257,7 +257,7 @@ test('it generates unique hashes for entries including file and line', function 
 
 test('it handles non-stack channel names', function () {
     config(['paladin.log.channels' => ['custom']]);
-    $this->scanner = new LogScanner;
+    $this->scanner = app(LogScanner::class);
 
     createLogFile($this->tempLogPath, 'custom.log', '[2026-03-15 10:00:00] production.ERROR: Custom error');
 

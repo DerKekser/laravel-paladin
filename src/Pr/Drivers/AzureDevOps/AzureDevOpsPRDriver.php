@@ -1,6 +1,6 @@
 <?php
 
-namespace Kekser\LaravelPaladin\Drivers\AzureDevOps;
+namespace Kekser\LaravelPaladin\Pr\Drivers\AzureDevOps;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;

@@ -9,7 +9,7 @@ use Laravel\Ai\Enums\Lab;
 use Mockery;
 
 beforeEach(function () {
-    $this->analyzer = new IssueAnalyzer;
+    $this->analyzer = app(IssueAnalyzer::class);
 });
 
 it('returns instructions', function () {
@@ -101,8 +101,8 @@ it('analyzes log entries', function () {
 
 it('respects configuration for model and temperature', function () {
     config([
-        'paladin.ai.model' => 'test-model',
-        'paladin.ai.temperature' => 0.5,
+        'paladin.evaluators.laravel-ai.model' => 'test-model',
+        'paladin.evaluators.laravel-ai.temperature' => 0.5,
     ]);
 
     // getModel and temperature are protected, but we can verify them via reflection
@@ -124,7 +124,7 @@ it('uses default values for model and temperature when config is missing', funct
     // Let's just mock the config or set it to something and then test defaults if not set.
 
     // Actually, let's just use the default test which passed (except for the null issue)
-    config(['paladin.ai' => []]);
+    config(['paladin.evaluators.laravel-ai' => []]);
 
     $reflection = new \ReflectionClass(IssueAnalyzer::class);
 

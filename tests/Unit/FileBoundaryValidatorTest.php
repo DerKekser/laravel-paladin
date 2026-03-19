@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\File;
 use Kekser\LaravelPaladin\Services\FileBoundaryValidator;
 
 beforeEach(function () {
-    $this->validator = new FileBoundaryValidator;
+    $this->validator = app(FileBoundaryValidator::class);
 });
 
 test('it identifies vendor files as external', function () {
@@ -115,7 +115,7 @@ test('it prioritizes allowed paths over excluded paths', function () {
         'paladin.file_boundaries.excluded_paths' => ['vendor/'],
     ]);
 
-    $validator = new FileBoundaryValidator;
+    $validator = app(FileBoundaryValidator::class);
 
     // app/vendor/SomeClass.php should be allowed because app/vendor/ is in allowed_paths
     // even though it contains 'vendor' which is in excluded_paths
@@ -140,7 +140,7 @@ GITIGNORE;
     File::shouldReceive('exists')->with(base_path('.gitignore'))->andReturn(true);
     File::shouldReceive('get')->with(base_path('.gitignore'))->andReturn($gitignoreContent);
 
-    $validator = new FileBoundaryValidator;
+    $validator = app(FileBoundaryValidator::class);
 
     expect($validator->isProjectFile('test.log'))->toBeFalse();
     expect($validator->isProjectFile('storage/logs/laravel.log'))->toBeFalse();
@@ -150,7 +150,7 @@ GITIGNORE;
 test('it handles non existent gitignore', function () {
     File::shouldReceive('exists')->with(base_path('.gitignore'))->andReturn(false);
 
-    $validator = new FileBoundaryValidator;
+    $validator = app(FileBoundaryValidator::class);
     expect($validator->isProjectFile('app/Models/User.php'))->toBeTrue();
 });
 
@@ -159,7 +159,7 @@ test('it matches gitignore patterns from root', function () {
     File::shouldReceive('exists')->with(base_path('.gitignore'))->andReturn(true);
     File::shouldReceive('get')->with(base_path('.gitignore'))->andReturn($gitignoreContent);
 
-    $validator = new FileBoundaryValidator;
+    $validator = app(FileBoundaryValidator::class);
 
     expect($validator->isProjectFile('root_only.php'))->toBeFalse();
     expect($validator->isProjectFile('subdir/root_only.php'))->toBeTrue();

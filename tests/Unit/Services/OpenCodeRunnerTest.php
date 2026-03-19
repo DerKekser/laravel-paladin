@@ -20,7 +20,7 @@ test('it runs opencode successfully', function () {
         '*' => Process::result('Success output', 0),
     ]);
 
-    $runner = new OpenCodeRunner;
+    $runner = app(OpenCodeRunner::class);
     $result = $runner->run('Fix this bug', $this->tempDir);
 
     expect($result['success'])->toBeTrue();
@@ -33,7 +33,7 @@ test('it handles opencode failure', function () {
         '*' => Process::result('', 'Error output', 1),
     ]);
 
-    $runner = new OpenCodeRunner;
+    $runner = app(OpenCodeRunner::class);
     $result = $runner->run('Fix this bug', $this->tempDir);
 
     expect($result['success'])->toBeFalse();
@@ -42,7 +42,7 @@ test('it handles opencode failure', function () {
 });
 
 test('it throws exception if working directory does not exist', function () {
-    $runner = new OpenCodeRunner;
+    $runner = app(OpenCodeRunner::class);
     $runner->run('Fix this bug', '/non-existent-directory');
 })->throws(RuntimeException::class, 'Working directory does not exist');
 
@@ -51,6 +51,6 @@ test('it checks if opencode is available', function () {
         '*' => Process::result('/usr/bin/opencode', 0),
     ]);
 
-    $runner = new OpenCodeRunner;
+    $runner = app(OpenCodeRunner::class);
     expect($runner->isAvailable())->toBeTrue();
 });

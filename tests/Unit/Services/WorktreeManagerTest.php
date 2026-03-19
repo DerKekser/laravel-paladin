@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\File;
 use Kekser\LaravelPaladin\Services\WorktreeManager;
 
 beforeEach(function () {
-    $this->manager = new WorktreeManager;
+    $this->manager = app(WorktreeManager::class);
 
     // Clean up any existing test worktrees
     $basePath = $this->manager->getBasePath();
@@ -52,7 +52,7 @@ function isAbsolutePath(string $path): bool
 test('it gets base path from config', function () {
     config(['paladin.worktree.base_path' => 'worktrees']);
 
-    $manager = new WorktreeManager;
+    $manager = app(WorktreeManager::class);
     $basePath = $manager->getBasePath();
 
     expect($basePath)->toEndWith('worktrees');
@@ -62,7 +62,7 @@ test('it gets base path from config', function () {
 test('it handles absolute paths', function () {
     config(['paladin.worktree.base_path' => '/tmp/paladin-worktrees']);
 
-    $manager = new WorktreeManager;
+    $manager = app(WorktreeManager::class);
 
     expect($manager->getBasePath())->toBe('/tmp/paladin-worktrees');
 });
@@ -70,7 +70,7 @@ test('it handles absolute paths', function () {
 test('it generates worktree name with issue id', function () {
     config(['paladin.worktree.naming_pattern' => 'paladin-fix-{issue_id}']);
 
-    $manager = new WorktreeManager;
+    $manager = app(WorktreeManager::class);
     $method = getProtectedMethod(WorktreeManager::class, 'generateWorktreeName');
 
     $name = $method->invoke($manager, 'abc123def456');
@@ -81,7 +81,7 @@ test('it generates worktree name with issue id', function () {
 test('it generates worktree name with timestamp', function () {
     config(['paladin.worktree.naming_pattern' => 'paladin-fix-{timestamp}']);
 
-    $manager = new WorktreeManager;
+    $manager = app(WorktreeManager::class);
     $method = getProtectedMethod(WorktreeManager::class, 'generateWorktreeName');
 
     $name = $method->invoke($manager, 'test-issue');
@@ -93,7 +93,7 @@ test('it generates worktree name with timestamp', function () {
 test('it generates worktree name with both placeholders', function () {
     config(['paladin.worktree.naming_pattern' => 'paladin-fix-{issue_id}-{timestamp}']);
 
-    $manager = new WorktreeManager;
+    $manager = app(WorktreeManager::class);
     $method = getProtectedMethod(WorktreeManager::class, 'generateWorktreeName');
 
     $name = $method->invoke($manager, 'abc123def456');
@@ -119,7 +119,7 @@ test('it checks if path is absolute windows', function () {
 test('it gets full path for worktree', function () {
     config(['paladin.worktree.base_path' => '/tmp/paladin-test']);
 
-    $manager = new WorktreeManager;
+    $manager = app(WorktreeManager::class);
     $method = getProtectedMethod(WorktreeManager::class, 'getFullPath');
 
     $fullPath = $method->invoke($manager, 'test-worktree');
@@ -178,7 +178,7 @@ test('it cleans up old worktrees', function () {
         'paladin.worktree.cleanup_after_days' => 7,
     ]);
 
-    $manager = new WorktreeManager;
+    $manager = app(WorktreeManager::class);
     $basePath = $manager->getBasePath();
 
     // Create base directory
@@ -217,7 +217,7 @@ test('it cleans up old worktrees', function () {
 test('it returns zero when base path does not exist', function () {
     config(['paladin.worktree.base_path' => '/tmp/non-existent-'.uniqid()]);
 
-    $manager = new WorktreeManager;
+    $manager = app(WorktreeManager::class);
     $removed = $manager->cleanupOld();
 
     expect($removed)->toBe(0);
@@ -229,7 +229,7 @@ test('it respects cleanup after days config', function () {
         'paladin.worktree.cleanup_after_days' => 3,
     ]);
 
-    $manager = new WorktreeManager;
+    $manager = app(WorktreeManager::class);
     $basePath = $manager->getBasePath();
 
     File::makeDirectory($basePath, 0755, true);
@@ -253,7 +253,7 @@ test('it creates a new worktree', function () {
     config(['paladin.worktree.base_path' => $tempBase]);
     config(['paladin.git.default_branch' => 'main']);
 
-    $manager = new WorktreeManager;
+    $manager = app(WorktreeManager::class);
 
     // We can't easily mock exec() in this environment without extra tools,
     // so we expect it to fail if git is not available or we are not in a git repo.
@@ -275,7 +275,7 @@ test('it handles non-existent base directory in create', function () {
 
     config(['paladin.worktree.base_path' => $tempBase]);
 
-    $manager = new WorktreeManager;
+    $manager = app(WorktreeManager::class);
 
     // We want to trigger File::makeDirectory
     expect(File::exists($tempBase))->toBeFalse();

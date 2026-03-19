@@ -28,7 +28,7 @@ class LogScanner
 
         $this->levels = config('paladin.log.levels');
         $this->ignorePatterns = config('paladin.issues.ignore_patterns', []);
-        $this->boundaryValidator = new FileBoundaryValidator;
+        $this->boundaryValidator = app(FileBoundaryValidator::class);
     }
 
     /**
