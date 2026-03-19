@@ -31,7 +31,7 @@ class WorktreeSetup
             $this->createStorageDirectories($worktreePath);
 
             // 4. Laravel Boost
-            (new LaravelBoostService)->ensureBoosted($worktreePath);
+            app(LaravelBoostService::class)->ensureBoosted($worktreePath);
 
             // 5. Custom commands
             $this->runCustomCommands($worktreePath);

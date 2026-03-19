@@ -16,7 +16,7 @@ class LaravelBoostServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new LaravelBoostService;
+        $this->service = app(LaravelBoostService::class);
     }
 
     public function test_it_skips_if_disabled_in_config()
