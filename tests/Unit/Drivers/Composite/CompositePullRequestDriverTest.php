@@ -3,7 +3,7 @@
 namespace Tests\Unit\Drivers\Composite;
 
 use Kekser\LaravelPaladin\Contracts\PullRequestDriver;
-use Kekser\LaravelPaladin\Drivers\Composite\CompositePullRequestDriver;
+use Kekser\LaravelPaladin\Pr\Drivers\Composite\CompositePullRequestDriver;
 use Mockery;
 use PHPUnit\Framework\TestCase;
 

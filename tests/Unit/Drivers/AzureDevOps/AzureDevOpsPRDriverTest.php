@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Kekser\LaravelPaladin\Drivers\AzureDevOps\AzureDevOpsPRDriver;
+use Kekser\LaravelPaladin\Pr\Drivers\AzureDevOps\AzureDevOpsPRDriver;
 use Kekser\LaravelPaladin\Tests\Fixtures\Helpers\CreatesTestRepository;
 
 uses(CreatesTestRepository::class);

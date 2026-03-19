@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Kekser\LaravelPaladin\Drivers\GitHub\GitHubPRDriver;
+use Kekser\LaravelPaladin\Pr\Drivers\GitHub\GitHubPRDriver;
 use Kekser\LaravelPaladin\Tests\Fixtures\Helpers\CreatesTestRepository;
 
 uses(CreatesTestRepository::class);

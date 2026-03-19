@@ -1,6 +1,6 @@
 <?php
 
-namespace Kekser\LaravelPaladin\Drivers\Composite;
+namespace Kekser\LaravelPaladin\Pr\Drivers\Composite;
 
 use Kekser\LaravelPaladin\Contracts\PullRequestDriver;
 

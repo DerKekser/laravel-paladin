@@ -1,9 +1,9 @@
 <?php
 
-namespace Kekser\LaravelPaladin\Services;
+namespace Kekser\LaravelPaladin\Pr;
 
 use Kekser\LaravelPaladin\Contracts\PullRequestDriver;
-use Kekser\LaravelPaladin\Drivers\Composite\CompositePullRequestDriver;
+use Kekser\LaravelPaladin\Pr\Drivers\Composite\CompositePullRequestDriver;
 use RuntimeException;
 
 class PullRequestManager

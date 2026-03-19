@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use Kekser\LaravelPaladin\Drivers\Mail\MailNotificationDriver;
+use Kekser\LaravelPaladin\Pr\Drivers\Mail\MailNotificationDriver;
 
 beforeEach(function () {
     config([

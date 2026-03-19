@@ -2,9 +2,9 @@
 
 use Kekser\LaravelPaladin\Ai\LaravelAi\LaravelAiEvaluator;
 use Kekser\LaravelPaladin\Ai\Opencode\OpenCodeEvaluator;
-use Kekser\LaravelPaladin\Drivers\AzureDevOps\AzureDevOpsPRDriver;
-use Kekser\LaravelPaladin\Drivers\GitHub\GitHubPRDriver;
-use Kekser\LaravelPaladin\Drivers\Mail\MailNotificationDriver;
+use Kekser\LaravelPaladin\Pr\Drivers\AzureDevOps\AzureDevOpsPRDriver;
+use Kekser\LaravelPaladin\Pr\Drivers\GitHub\GitHubPRDriver;
+use Kekser\LaravelPaladin\Pr\Drivers\Mail\MailNotificationDriver;
 
 return [
 

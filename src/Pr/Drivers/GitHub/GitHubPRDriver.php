@@ -1,6 +1,6 @@
 <?php
 
-namespace Kekser\LaravelPaladin\Drivers\GitHub;
+namespace Kekser\LaravelPaladin\Pr\Drivers\GitHub;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;

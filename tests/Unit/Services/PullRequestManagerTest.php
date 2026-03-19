@@ -1,10 +1,10 @@
 <?php
 
 use Kekser\LaravelPaladin\Contracts\PullRequestDriver;
-use Kekser\LaravelPaladin\Drivers\Composite\CompositePullRequestDriver;
-use Kekser\LaravelPaladin\Drivers\GitHub\GitHubPRDriver;
-use Kekser\LaravelPaladin\Drivers\Mail\MailNotificationDriver;
-use Kekser\LaravelPaladin\Services\PullRequestManager;
+use Kekser\LaravelPaladin\Pr\Drivers\Composite\CompositePullRequestDriver;
+use Kekser\LaravelPaladin\Pr\Drivers\GitHub\GitHubPRDriver;
+use Kekser\LaravelPaladin\Pr\Drivers\Mail\MailNotificationDriver;
+use Kekser\LaravelPaladin\Pr\PullRequestManager;
 
 test('it uses configured drivers via composite driver', function () {
     config(['paladin.pr_provider' => 'github,mail']);

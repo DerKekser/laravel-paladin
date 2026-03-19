@@ -1,6 +1,6 @@
 <?php
 
-namespace Kekser\LaravelPaladin\Drivers\Mail;
+namespace Kekser\LaravelPaladin\Pr\Drivers\Mail;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;

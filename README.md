@@ -277,21 +277,21 @@ OPENAI_API_KEY=sk-proj-...
 
 'providers' => [
     'github' => [
-        'driver' => \Kekser\LaravelPaladin\Drivers\GitHub\GitHubPRDriver::class,
+        'driver' => \Kekser\LaravelPaladin\Pr\Drivers\GitHub\GitHubPRDriver::class,
         'token' => env('PALADIN_GITHUB_TOKEN'),
         'api_url' => env('PALADIN_GITHUB_API_URL', 'https://api.github.com'),
     ],
-    
+        
     'azure-devops' => [
-        'driver' => \Kekser\LaravelPaladin\Drivers\AzureDevOps\AzureDevOpsPRDriver::class,
+        'driver' => \Kekser\LaravelPaladin\Pr\Drivers\AzureDevOps\AzureDevOpsPRDriver::class,
         'organization' => env('PALADIN_AZURE_DEVOPS_ORG'),
         'project' => env('PALADIN_AZURE_DEVOPS_PROJECT'),
         'token' => env('PALADIN_AZURE_DEVOPS_PAT'),
         'api_url' => env('PALADIN_AZURE_DEVOPS_URL', 'https://dev.azure.com'),
     ],
-    
+        
     'mail' => [
-        'driver' => \Kekser\LaravelPaladin\Drivers\Mail\MailNotificationDriver::class,
+        'driver' => \Kekser\LaravelPaladin\Pr\Drivers\Mail\MailNotificationDriver::class,
         'to' => env('PALADIN_MAIL_TO'),
         'from' => env('PALADIN_MAIL_FROM', env('MAIL_FROM_ADDRESS')),
     ],
