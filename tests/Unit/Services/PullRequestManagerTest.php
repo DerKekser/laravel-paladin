@@ -105,3 +105,27 @@ test('it returns null when no driver configured', function () {
 
     expect($driver->isConfigured())->toBeFalse();
 });
+
+test('it can use a custom driver via configuration', function () {
+    $customDriver = new class implements PullRequestDriver {
+        public function createPullRequest(string $branch, string $title, string $body, string $baseBranch = 'main'): ?string {
+            return 'http://custom.pr/1';
+        }
+        public function isConfigured(): bool { return true; }
+        public function getConfigurationErrors(): array { return []; }
+    };
+
+    config([
+        'paladin.pr_provider' => 'custom',
+        'paladin.providers.custom' => [
+            'driver' => get_class($customDriver),
+        ]
+    ]);
+
+    app()->instance(get_class($customDriver), $customDriver);
+
+    $manager = app(PullRequestManager::class);
+    $result = $manager->createPullRequest('test-branch', 'Test PR', 'Test body');
+
+    expect($result)->toBe('http://custom.pr/1');
+});

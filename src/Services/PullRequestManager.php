@@ -49,12 +49,11 @@ class PullRequestManager
      */
     protected function resolveDriver(string $provider): PullRequestDriver
     {
-        $class = match ($provider) {
-            'github' => GitHubPRDriver::class,
-            'azure-devops' => AzureDevOpsPRDriver::class,
-            'mail' => MailNotificationDriver::class,
-            default => throw new RuntimeException("Unknown PR provider: {$provider}"),
-        };
+        $class = config("paladin.providers.{$provider}.driver");
+
+        if (! $class || ! class_exists($class)) {
+            throw new RuntimeException("Unknown PR provider: {$provider}");
+        }
 
         return app($class);
     }
