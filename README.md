@@ -58,6 +58,10 @@ Add the following to your `.env` file:
 PALADIN_ENABLED=true
 
 # AI Provider Configuration
+# Supported evaluators: laravel-ai, opencode
+PALADIN_AI_EVALUATOR=laravel-ai
+
+# AI Provider Configuration (for laravel-ai evaluator)
 # Supported providers: anthropic, azure, cohere, deepseek, gemini, groq, mistral, ollama, openai, openrouter, xai
 PALADIN_AI_PROVIDER=gemini
 PALADIN_AI_MODEL=gemini-2.0-flash-exp
@@ -187,11 +191,15 @@ protected function schedule(Schedule $schedule)
 
 The configuration file `config/paladin.php` provides extensive customization options:
 
-### AI Configuration
+### AI Evaluator Configuration
 
-Laravel Paladin supports multiple AI providers through the Laravel AI SDK:
+Laravel Paladin supports different AI evaluators and providers:
 
-**Supported Providers:**
+**Evaluators:**
+- `laravel-ai` (default) - Uses the [Laravel AI SDK](https://github.com/laravel/ai) with multiple supported backends
+- `opencode` - Uses the OpenCode CLI directly for analysis (no API keys required)
+
+**Supported Providers (for `laravel-ai` evaluator):**
 - `anthropic` - Claude models (requires `ANTHROPIC_API_KEY`)
 - `azure` - Azure OpenAI (requires `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`)
 - `cohere` - Cohere models (requires `COHERE_API_KEY`)
@@ -205,30 +213,35 @@ Laravel Paladin supports multiple AI providers through the Laravel AI SDK:
 - `xai` - xAI models (requires `XAI_API_KEY`)
 
 ```php
-'ai' => [
-    'provider' => env('PALADIN_AI_PROVIDER', 'gemini'),
-    'model' => env('PALADIN_AI_MODEL', 'gemini-2.0-flash-exp'),
-    'temperature' => env('PALADIN_AI_TEMPERATURE', 0.7),
+'evaluator' => env('PALADIN_AI_EVALUATOR', 'laravel-ai'),
+
+'evaluators' => [
+    'laravel-ai' => [
+        'provider' => env('PALADIN_AI_PROVIDER', 'gemini'),
+        'model' => env('PALADIN_AI_MODEL', 'gemini-2.0-flash-exp'),
+        'temperature' => env('PALADIN_AI_TEMPERATURE', 0.7),
+        // ...
+    ],
 ],
 ```
 
 **Example Configurations:**
 
 ```env
+# Google Gemini (Default)
+PALADIN_AI_EVALUATOR=laravel-ai
+PALADIN_AI_PROVIDER=gemini
+PALADIN_AI_MODEL=gemini-2.0-flash-exp
+GEMINI_API_KEY=your-gemini-api-key
+
+# OpenCode (No API keys needed)
+PALADIN_AI_EVALUATOR=opencode
+
 # OpenAI GPT-4
+PALADIN_AI_EVALUATOR=laravel-ai
 PALADIN_AI_PROVIDER=openai
 PALADIN_AI_MODEL=gpt-4o
 OPENAI_API_KEY=sk-proj-...
-
-# Anthropic Claude
-PALADIN_AI_PROVIDER=anthropic
-PALADIN_AI_MODEL=claude-3-5-sonnet-20241022
-ANTHROPIC_API_KEY=sk-ant-...
-
-# Local Ollama
-PALADIN_AI_PROVIDER=ollama
-PALADIN_AI_MODEL=llama3.2
-OLLAMA_BASE_URL=http://localhost:11434  # optional
 ```
 
 ### Log Monitoring
@@ -264,11 +277,13 @@ OLLAMA_BASE_URL=http://localhost:11434  # optional
 
 'providers' => [
     'github' => [
+        'driver' => \Kekser\LaravelPaladin\Drivers\GitHub\GitHubPRDriver::class,
         'token' => env('PALADIN_GITHUB_TOKEN'),
         'api_url' => env('PALADIN_GITHUB_API_URL', 'https://api.github.com'),
     ],
     
     'azure-devops' => [
+        'driver' => \Kekser\LaravelPaladin\Drivers\AzureDevOps\AzureDevOpsPRDriver::class,
         'organization' => env('PALADIN_AZURE_DEVOPS_ORG'),
         'project' => env('PALADIN_AZURE_DEVOPS_PROJECT'),
         'token' => env('PALADIN_AZURE_DEVOPS_PAT'),
@@ -276,6 +291,7 @@ OLLAMA_BASE_URL=http://localhost:11434  # optional
     ],
     
     'mail' => [
+        'driver' => \Kekser\LaravelPaladin\Drivers\Mail\MailNotificationDriver::class,
         'to' => env('PALADIN_MAIL_TO'),
         'from' => env('PALADIN_MAIL_FROM', env('MAIL_FROM_ADDRESS')),
     ],
