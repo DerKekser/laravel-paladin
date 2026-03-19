@@ -1,99 +1,83 @@
 <?php
 
-namespace Kekser\LaravelPaladin\Tests\Unit\Services;
-
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use Kekser\LaravelPaladin\Services\LaravelBoostService;
-use Kekser\LaravelPaladin\Tests\TestCase;
 
-class LaravelBoostServiceTest extends TestCase
-{
-    protected LaravelBoostService $service;
+beforeEach(function () {
+    $this->service = app(LaravelBoostService::class);
+    $this->worktreePath = '/mock/worktree';
+});
 
-    protected string $worktreePath = '/mock/worktree';
+it('skips if disabled in config', function () {
+    config(['paladin.worktree.laravel_boost_enabled' => false]);
+    Process::fake();
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->service = app(LaravelBoostService::class);
-    }
+    $result = $this->service->ensureBoosted($this->worktreePath);
 
-    public function test_it_skips_if_disabled_in_config()
-    {
-        config(['paladin.worktree.laravel_boost_enabled' => false]);
-        Process::fake();
+    expect($result)->toBeTrue();
+    Process::assertNothingRan();
+});
 
-        $result = $this->service->ensureBoosted($this->worktreePath);
+it('runs boost install if not installed', function () {
+    config(['paladin.worktree.laravel_boost_enabled' => true]);
+    File::shouldReceive('exists')->with($this->worktreePath.'/artisan')->andReturn(true);
 
-        $this->assertTrue($result);
-        Process::assertNothingRan();
-    }
+    Process::fake([
+        'php artisan list boost' => Process::result('No commands found in the boost namespace.', 1),
+        'php artisan boost:install --no-interaction' => Process::result('Installed', 0),
+    ]);
 
-    public function test_it_runs_boost_install_if_not_installed()
-    {
-        config(['paladin.worktree.laravel_boost_enabled' => true]);
-        File::shouldReceive('exists')->with($this->worktreePath.'/artisan')->andReturn(true);
+    $result = $this->service->ensureBoosted($this->worktreePath);
 
-        Process::fake([
-            'php artisan list boost' => Process::result('No commands found in the boost namespace.', 1),
-            'php artisan boost:install --no-interaction' => Process::result('Installed', 0),
-        ]);
+    expect($result)->toBeTrue();
+    Process::assertRan(function ($process) {
+        return str_contains($process->command, 'boost:install');
+    });
+});
 
-        $result = $this->service->ensureBoosted($this->worktreePath);
+it('runs boost update if already installed', function () {
+    config(['paladin.worktree.laravel_boost_enabled' => true]);
+    File::shouldReceive('exists')->with($this->worktreePath.'/artisan')->andReturn(true);
 
-        $this->assertTrue($result);
-        Process::assertRan(function ($process) {
-            return str_contains($process->command, 'boost:install');
-        });
-    }
+    Process::fake([
+        'php artisan list boost' => Process::result('boost:install  Install boost', 0),
+        'php artisan boost:update --no-interaction' => Process::result('Updated', 0),
+    ]);
 
-    public function test_it_runs_boost_update_if_already_installed()
-    {
-        config(['paladin.worktree.laravel_boost_enabled' => true]);
-        File::shouldReceive('exists')->with($this->worktreePath.'/artisan')->andReturn(true);
+    $result = $this->service->ensureBoosted($this->worktreePath);
 
-        Process::fake([
-            'php artisan list boost' => Process::result('boost:install  Install boost', 0),
-            'php artisan boost:update --no-interaction' => Process::result('Updated', 0),
-        ]);
+    expect($result)->toBeTrue();
+    Process::assertRan(function ($process) {
+        return str_contains($process->command, 'boost:update');
+    });
+    Process::assertNotRan(function ($process) {
+        return str_contains($process->command, 'boost:install');
+    });
+});
 
-        $result = $this->service->ensureBoosted($this->worktreePath);
+it('returns false if artisan missing', function () {
+    config(['paladin.worktree.laravel_boost_enabled' => true]);
+    File::shouldReceive('exists')->with($this->worktreePath.'/artisan')->andReturn(false);
+    Process::fake();
 
-        $this->assertTrue($result);
-        Process::assertRan(function ($process) {
-            return str_contains($process->command, 'boost:update');
-        });
-        Process::assertNotRan(function ($process) {
-            return str_contains($process->command, 'boost:install');
-        });
-    }
+    $result = $this->service->ensureBoosted($this->worktreePath);
 
-    public function test_it_returns_false_if_artisan_missing()
-    {
-        config(['paladin.worktree.laravel_boost_enabled' => true]);
-        File::shouldReceive('exists')->with($this->worktreePath.'/artisan')->andReturn(false);
-        Process::fake();
+    expect($result)->toBeFalse();
+    Process::assertNothingRan();
+});
 
-        $result = $this->service->ensureBoosted($this->worktreePath);
+it('handles command failure', function () {
+    config(['paladin.worktree.laravel_boost_enabled' => true]);
+    File::shouldReceive('exists')->with($this->worktreePath.'/artisan')->andReturn(true);
 
-        $this->assertFalse($result);
-        Process::assertNothingRan();
-    }
+    Process::fake([
+        '*' => function () {
+            throw new \Exception('Process failed');
+        },
+    ]);
 
-    public function test_it_handles_command_failure()
-    {
-        config(['paladin.worktree.laravel_boost_enabled' => true]);
-        File::shouldReceive('exists')->with($this->worktreePath.'/artisan')->andReturn(true);
+    $result = $this->service->ensureBoosted($this->worktreePath);
 
-        Process::fake([
-            '*' => function () {
-                throw new \Exception('Process failed');
-            },
-        ]);
-
-        $result = $this->service->ensureBoosted($this->worktreePath);
-
-        $this->assertFalse($result);
-    }
-}
+    expect($result)->toBeFalse();
+});
