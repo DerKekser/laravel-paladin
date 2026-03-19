@@ -46,7 +46,8 @@ class PullRequestManager
      */
     protected function resolveDriver(string $provider): PullRequestDriver
     {
-        $class = config("paladin.providers.{$provider}.driver");
+        $config = config("paladin.providers.{$provider}.driver");
+        $class = is_array($config) ? ($config['driver'] ?? null) : $config;
 
         if (! $class || ! class_exists($class)) {
             throw new RuntimeException("Unknown PR provider: {$provider}");
