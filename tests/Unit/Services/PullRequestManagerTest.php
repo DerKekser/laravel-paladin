@@ -10,7 +10,7 @@ use Kekser\LaravelPaladin\Services\PullRequestManager;
 test('it uses configured drivers via composite driver', function () {
     config(['paladin.pr_provider' => 'github,mail']);
 
-    $manager = new PullRequestManager;
+    $manager = app(PullRequestManager::class);
     $driver = $manager->getDriver();
 
     expect($driver)->toBeInstanceOf(CompositePullRequestDriver::class);
@@ -19,7 +19,7 @@ test('it uses configured drivers via composite driver', function () {
 test('it uses azure driver when configured', function () {
     config(['paladin.pr_provider' => 'azure-devops']);
 
-    $manager = new PullRequestManager;
+    $manager = app(PullRequestManager::class);
     $driver = $manager->getDriver();
 
     expect($driver)->toBeInstanceOf(CompositePullRequestDriver::class);
@@ -28,7 +28,7 @@ test('it uses azure driver when configured', function () {
 test('it uses mail driver when configured', function () {
     config(['paladin.pr_provider' => 'mail']);
 
-    $manager = new PullRequestManager;
+    $manager = app(PullRequestManager::class);
     $driver = $manager->getDriver();
 
     expect($driver)->toBeInstanceOf(CompositePullRequestDriver::class);
@@ -37,7 +37,7 @@ test('it uses mail driver when configured', function () {
 test('it always returns a composite driver', function () {
     config(['paladin.pr_provider' => 'github']);
 
-    $manager = new PullRequestManager;
+    $manager = app(PullRequestManager::class);
     $driver = $manager->getDriver();
 
     expect($driver)->toBeInstanceOf(CompositePullRequestDriver::class);
@@ -47,7 +47,7 @@ test('it always returns a composite driver', function () {
 test('it throws exception for unknown provider', function () {
     config(['paladin.pr_provider' => 'unknown']);
 
-    $manager = new PullRequestManager;
+    $manager = app(PullRequestManager::class);
     $manager->createPullRequest('test-branch', 'Test PR', 'Test body');
 })->throws(RuntimeException::class, 'Unknown PR provider');
 
@@ -63,7 +63,7 @@ test('it uses default base branch', function () {
 
     app()->instance(GitHubPRDriver::class, $mockDriver);
 
-    $manager = new PullRequestManager;
+    $manager = app(PullRequestManager::class);
 
     $result = $manager->createPullRequest('test-branch', 'Test PR', 'Test body');
 
@@ -88,7 +88,7 @@ test('it calls multiple drivers when configured', function () {
     app()->instance(GitHubPRDriver::class, $mockGithub);
     app()->instance(MailNotificationDriver::class, $mockMail);
 
-    $manager = new PullRequestManager;
+    $manager = app(PullRequestManager::class);
     $result = $manager->createPullRequest('test-branch', 'Test PR', 'Test body');
 
     expect($result)->toBe('http://github.com/pr/1');
@@ -100,7 +100,7 @@ test('it returns null when no driver configured', function () {
     config(['paladin.providers.azure-devops.token' => null]);
     config(['paladin.providers.mail.to' => null]);
 
-    $manager = new PullRequestManager;
+    $manager = app(PullRequestManager::class);
     $driver = $manager->getDriver();
 
     expect($driver->isConfigured())->toBeFalse();

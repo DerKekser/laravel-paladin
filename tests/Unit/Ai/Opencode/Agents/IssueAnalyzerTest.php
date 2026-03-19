@@ -6,7 +6,7 @@ use Kekser\LaravelPaladin\Services\OpenCodeRunner;
 
 beforeEach(function () {
     $this->runnerMock = Mockery::mock(OpenCodeRunner::class);
-    $this->analyzer = new IssueAnalyzer;
+    $this->analyzer = app(IssueAnalyzer::class);
 
     // Inject mock via reflection
     $reflection = new ReflectionClass(IssueAnalyzer::class);

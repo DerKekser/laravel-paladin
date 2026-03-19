@@ -12,19 +12,19 @@ beforeEach(function () {
 });
 
 test('it is configured when both to and from addresses are present', function () {
-    $driver = new MailNotificationDriver;
+    $driver = app(MailNotificationDriver::class);
     expect($driver->isConfigured())->toBeTrue();
 });
 
 test('it is not configured when to address is missing', function () {
     config(['paladin.providers.mail.to' => null]);
-    $driver = new MailNotificationDriver;
+    $driver = app(MailNotificationDriver::class);
     expect($driver->isConfigured())->toBeFalse();
 });
 
 test('it is not configured when from address is missing', function () {
     config(['paladin.providers.mail.from' => null]);
-    $driver = new MailNotificationDriver;
+    $driver = app(MailNotificationDriver::class);
     expect($driver->isConfigured())->toBeFalse();
 });
 
@@ -45,7 +45,7 @@ test('it sends email when correctly configured', function () {
         }))
         ->andReturn(null);
 
-    $driver = new MailNotificationDriver;
+    $driver = app(MailNotificationDriver::class);
     $result = $driver->createPullRequest('fix-branch', 'Test Title', 'Test Body', 'main');
 
     expect($result)->toBe('email:test@example.com');
@@ -58,7 +58,7 @@ test('it skips notification when not configured', function () {
     config(['paladin.providers.mail.to' => null]);
     Log::spy();
 
-    $driver = new MailNotificationDriver;
+    $driver = app(MailNotificationDriver::class);
     $result = $driver->createPullRequest('fix-branch', 'Test Title', 'Test Body', 'main');
 
     expect($result)->toBeNull();
@@ -69,7 +69,7 @@ test('it handles email sending exception', function () {
     Mail::shouldReceive('send')->andThrow(new Exception('Mail delivery failed'));
     Log::spy();
 
-    $driver = new MailNotificationDriver;
+    $driver = app(MailNotificationDriver::class);
     $result = $driver->createPullRequest('fix-branch', 'Test Title', 'Test Body', 'main');
 
     expect($result)->toBeNull();
@@ -83,7 +83,7 @@ test('it gets repository name from git origin', function () {
     // However, we can check if it returns "Unknown repository" if git fails or is not present.
     // Or we can rely on the fact that we are in a git repo during tests.
 
-    $driver = new MailNotificationDriver;
+    $driver = app(MailNotificationDriver::class);
 
     // Use reflection to access protected getRepository
     $reflection = new ReflectionClass(MailNotificationDriver::class);

@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Log;
 use Kekser\LaravelPaladin\Services\TestRunner;
 
 beforeEach(function () {
-    $this->runner = new TestRunner;
+    $this->runner = app(TestRunner::class);
     $this->tempDir = $this->createTempDirectory('test-runner-');
 
     Log::spy();
@@ -29,7 +29,7 @@ test('it can set custom test command', function () {
 test('it uses configured test command', function () {
     config(['paladin.testing.command' => 'php artisan test']);
 
-    $runner = new TestRunner;
+    $runner = app(TestRunner::class);
 
     // We can't directly access the private property, but we can verify via execution
     expect($runner)->toBeInstanceOf(TestRunner::class);
@@ -38,7 +38,7 @@ test('it uses configured test command', function () {
 test('it uses configured timeout', function () {
     config(['paladin.testing.timeout' => 600]);
 
-    $runner = new TestRunner;
+    $runner = app(TestRunner::class);
 
     expect($runner)->toBeInstanceOf(TestRunner::class);
 });
@@ -49,7 +49,7 @@ test('it runs command successfully', function () {
     file_put_contents($scriptPath, "#!/bin/bash\necho 'Tests passed'\nexit 0");
     chmod($scriptPath, 0755);
 
-    $runner = new TestRunner;
+    $runner = app(TestRunner::class);
     $runner->setCommand('bash test.sh');
 
     $result = $runner->run($this->tempDir);
@@ -66,7 +66,7 @@ test('it detects test failures', function () {
     file_put_contents($scriptPath, "#!/bin/bash\necho 'Tests failed'\nexit 1");
     chmod($scriptPath, 0755);
 
-    $runner = new TestRunner;
+    $runner = app(TestRunner::class);
     $runner->setCommand('bash test.sh');
 
     $result = $runner->run($this->tempDir);
@@ -83,7 +83,7 @@ test('it captures stdout and stderr', function () {
     file_put_contents($scriptPath, "#!/bin/bash\necho 'stdout message'\necho 'stderr message' >&2\nexit 0");
     chmod($scriptPath, 0755);
 
-    $runner = new TestRunner;
+    $runner = app(TestRunner::class);
     $runner->setCommand('bash test.sh');
 
     $result = $runner->run($this->tempDir);
@@ -100,7 +100,7 @@ test('it handles timeout', function () {
     file_put_contents($scriptPath, "#!/bin/bash\nsleep 5\necho 'Should not see this'\nexit 0");
     chmod($scriptPath, 0755);
 
-    $runner = new TestRunner;
+    $runner = app(TestRunner::class);
     $runner->setCommand('bash test.sh');
 
     $result = $runner->run($this->tempDir);
@@ -119,7 +119,7 @@ test('it extracts failed tests from output', function () {
     file_put_contents($scriptPath, "#!/bin/bash\necho '".addslashes($output)."'\nexit 1");
     chmod($scriptPath, 0755);
 
-    $runner = new TestRunner;
+    $runner = app(TestRunner::class);
     $runner->setCommand('bash test.sh');
 
     $result = $runner->run($this->tempDir);
@@ -133,7 +133,7 @@ test('it returns empty failed tests on success', function () {
     file_put_contents($scriptPath, "#!/bin/bash\necho 'All tests passed'\nexit 0");
     chmod($scriptPath, 0755);
 
-    $runner = new TestRunner;
+    $runner = app(TestRunner::class);
     $runner->setCommand('bash test.sh');
 
     $result = $runner->run($this->tempDir);
@@ -147,7 +147,7 @@ test('it logs test execution start', function () {
     file_put_contents($scriptPath, "#!/bin/bash\nexit 0");
     chmod($scriptPath, 0755);
 
-    $runner = new TestRunner;
+    $runner = app(TestRunner::class);
     $runner->setCommand('bash test.sh');
 
     $runner->run($this->tempDir);
@@ -161,7 +161,7 @@ test('it logs test execution completion', function () {
     file_put_contents($scriptPath, "#!/bin/bash\nexit 0");
     chmod($scriptPath, 0755);
 
-    $runner = new TestRunner;
+    $runner = app(TestRunner::class);
     $runner->setCommand('bash test.sh');
 
     $runner->run($this->tempDir);
@@ -175,7 +175,7 @@ test('it includes return code in result', function () {
     file_put_contents($scriptPath, "#!/bin/bash\nexit 42");
     chmod($scriptPath, 0755);
 
-    $runner = new TestRunner;
+    $runner = app(TestRunner::class);
     $runner->setCommand('bash test.sh');
 
     $result = $runner->run($this->tempDir);
@@ -200,7 +200,7 @@ BASH;
     file_put_contents($scriptPath, $scriptContent);
     chmod($scriptPath, 0755);
 
-    $runner = new TestRunner;
+    $runner = app(TestRunner::class);
     $runner->setCommand('bash test.sh');
 
     $result = $runner->run($this->tempDir);

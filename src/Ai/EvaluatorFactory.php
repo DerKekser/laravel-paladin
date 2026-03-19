@@ -26,8 +26,8 @@ class EvaluatorFactory
         $evaluatorName = config('paladin.ai.evaluator', 'laravel-ai') ?: 'laravel-ai';
 
         $this->evaluator = match (strtolower($evaluatorName)) {
-            'laravel-ai' => new LaravelAiEvaluator,
-            'opencode' => new OpenCodeEvaluator,
+            'laravel-ai' => app(LaravelAiEvaluator::class),
+            'opencode' => app(OpenCodeEvaluator::class),
             default => throw new InvalidArgumentException(
                 "Unsupported AI evaluator: {$evaluatorName}. Supported evaluators: laravel-ai, opencode"
             ),

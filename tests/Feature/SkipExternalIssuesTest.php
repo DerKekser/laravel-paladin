@@ -30,7 +30,7 @@ test('it skips log entries with only vendor files in stack trace', function () {
 
     File::put($this->testLogPath, $logContent);
 
-    $scanner = new LogScanner;
+    $scanner = app(LogScanner::class);
     $scanner->resetLastScanTime();
     $entries = $scanner->scan();
 
@@ -49,7 +49,7 @@ test('it includes log entries with app files in stack trace', function () {
 
     File::put($this->testLogPath, $logContent);
 
-    $scanner = new LogScanner;
+    $scanner = app(LogScanner::class);
     $scanner->resetLastScanTime();
     $entries = $scanner->scan();
 
@@ -68,7 +68,7 @@ test('it includes log entries with mixed app and vendor files', function () {
 
     File::put($this->testLogPath, $logContent);
 
-    $scanner = new LogScanner;
+    $scanner = app(LogScanner::class);
     $scanner->resetLastScanTime();
     $entries = $scanner->scan();
 

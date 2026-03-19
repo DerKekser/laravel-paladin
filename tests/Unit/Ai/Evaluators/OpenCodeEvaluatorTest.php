@@ -18,7 +18,7 @@ function setProtectedProperty(object $object, string $property, mixed $value): v
 }
 
 test('it implements issue evaluator contract', function () {
-    $evaluator = new OpenCodeEvaluator;
+    $evaluator = app(OpenCodeEvaluator::class);
 
     expect($evaluator)->toBeInstanceOf(IssueEvaluator::class);
 });
@@ -41,7 +41,7 @@ test('it analyzes issues successfully', function () {
             ],
         ]);
 
-    $evaluator = new OpenCodeEvaluator;
+    $evaluator = app(OpenCodeEvaluator::class);
     setProtectedProperty($evaluator, 'analyzer', $mockAnalyzer);
 
     $logEntries = [
@@ -67,7 +67,7 @@ test('it generates prompt successfully', function () {
         ->once()
         ->andReturn('Fix the division by zero error in UserController by adding a validation check.');
 
-    $evaluator = new OpenCodeEvaluator;
+    $evaluator = app(OpenCodeEvaluator::class);
     setProtectedProperty($evaluator, 'promptGenerator', $mockGenerator);
 
     $issue = [
@@ -89,7 +89,7 @@ test('it reports configured when opencode is available', function () {
     $mockRunner = Mockery::mock(OpenCodeRunner::class);
     $mockRunner->shouldReceive('isAvailable')->andReturn(true);
 
-    $evaluator = new OpenCodeEvaluator;
+    $evaluator = app(OpenCodeEvaluator::class);
     setProtectedProperty($evaluator, 'runner', $mockRunner);
 
     expect($evaluator->isConfigured())->toBeTrue();
@@ -100,7 +100,7 @@ test('it reports not configured when opencode unavailable', function () {
     $mockRunner = Mockery::mock(OpenCodeRunner::class);
     $mockRunner->shouldReceive('isAvailable')->andReturn(false);
 
-    $evaluator = new OpenCodeEvaluator;
+    $evaluator = app(OpenCodeEvaluator::class);
     setProtectedProperty($evaluator, 'runner', $mockRunner);
 
     expect($evaluator->isConfigured())->toBeFalse();

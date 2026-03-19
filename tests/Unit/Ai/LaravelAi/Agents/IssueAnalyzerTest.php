@@ -9,7 +9,7 @@ use Laravel\Ai\Enums\Lab;
 use Mockery;
 
 beforeEach(function () {
-    $this->analyzer = new IssueAnalyzer;
+    $this->analyzer = app(IssueAnalyzer::class);
 });
 
 it('returns instructions', function () {

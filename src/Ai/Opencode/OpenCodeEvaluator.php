@@ -18,7 +18,7 @@ class OpenCodeEvaluator implements IssueEvaluator
 
     public function __construct()
     {
-        $this->runner = new OpenCodeRunner;
+        $this->runner = app(OpenCodeRunner::class);
     }
 
     /**
@@ -27,7 +27,7 @@ class OpenCodeEvaluator implements IssueEvaluator
     protected function getAnalyzer(): IssueAnalyzer
     {
         if ($this->analyzer === null) {
-            $this->analyzer = new IssueAnalyzer;
+            $this->analyzer = app(IssueAnalyzer::class);
         }
 
         return $this->analyzer;
@@ -39,7 +39,7 @@ class OpenCodeEvaluator implements IssueEvaluator
     protected function getPromptGenerator(): PromptGenerator
     {
         if ($this->promptGenerator === null) {
-            $this->promptGenerator = new PromptGenerator;
+            $this->promptGenerator = app(PromptGenerator::class);
         }
 
         return $this->promptGenerator;

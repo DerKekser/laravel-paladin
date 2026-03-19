@@ -10,7 +10,7 @@ use Kekser\LaravelPaladin\Exceptions\AiServerException;
 use Kekser\LaravelPaladin\Exceptions\AiTimeoutException;
 
 beforeEach(function () {
-    $this->handler = new AiProviderRetryHandler;
+    $this->handler = app(AiProviderRetryHandler::class);
     $this->handler->setSleepMultiplier(0); // Disable sleep in tests
     Log::spy();
 });

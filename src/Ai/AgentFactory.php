@@ -20,7 +20,7 @@ class AgentFactory
      */
     public function createIssueAnalyzer(): IssueAnalyzer
     {
-        $analyzer = new IssueAnalyzer;
+        $analyzer = app(IssueAnalyzer::class);
         $analyzer->setProvider($this->provider);
 
         return $analyzer;

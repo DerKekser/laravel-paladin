@@ -13,35 +13,35 @@ beforeEach(function () {
         'paladin.providers.github.api_url' => 'https://api.github.com',
     ]);
 
-    $this->driver = new GitHubPRDriver;
+    $this->driver = app(GitHubPRDriver::class);
 
     Log::spy();
 });
 
 test('it checks if driver is configured', function () {
     config(['paladin.providers.github.token' => 'test-token']);
-    $driver = new GitHubPRDriver;
+    $driver = app(GitHubPRDriver::class);
 
     expect($driver->isConfigured())->toBeTrue();
 });
 
 test('it returns false when token is missing', function () {
     config(['paladin.providers.github.token' => null]);
-    $driver = new GitHubPRDriver;
+    $driver = app(GitHubPRDriver::class);
 
     expect($driver->isConfigured())->toBeFalse();
 });
 
 test('it returns false when token is empty', function () {
     config(['paladin.providers.github.token' => '']);
-    $driver = new GitHubPRDriver;
+    $driver = app(GitHubPRDriver::class);
 
     expect($driver->isConfigured())->toBeFalse();
 });
 
 test('it throws exception when not configured', function () {
     config(['paladin.providers.github.token' => null]);
-    $driver = new GitHubPRDriver;
+    $driver = app(GitHubPRDriver::class);
 
     $driver->createPullRequest('feature-branch', 'Test PR', 'Test body');
 })->throws(RuntimeException::class, 'GitHub driver is not properly configured');
@@ -105,7 +105,7 @@ test('it uses configured api url', function () {
         ], 201),
     ]);
 
-    $driver = new GitHubPRDriver;
+    $driver = app(GitHubPRDriver::class);
 
     $originalDir = getcwd();
     chdir($testRepo);

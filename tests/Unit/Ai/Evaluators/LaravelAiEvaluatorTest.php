@@ -12,7 +12,7 @@ test('it implements issue evaluator contract', function () {
         'paladin.ai.credentials.gemini_api_key' => 'test-key',
     ]);
 
-    $evaluator = new LaravelAiEvaluator;
+    $evaluator = app(LaravelAiEvaluator::class);
 
     expect($evaluator)->toBeInstanceOf(IssueEvaluator::class);
 });
@@ -23,7 +23,7 @@ test('it reports configured when provider is valid', function () {
         'paladin.ai.credentials.gemini_api_key' => 'test-key',
     ]);
 
-    $evaluator = new LaravelAiEvaluator;
+    $evaluator = app(LaravelAiEvaluator::class);
 
     expect($evaluator->isConfigured())->toBeTrue();
     expect($evaluator->getConfigurationErrors())->toBeEmpty();
@@ -34,7 +34,7 @@ test('it reports not configured when provider missing', function () {
 
     // With lazy-loading, the constructor no longer throws.
     // Instead, getConfigurationErrors() should report the issue.
-    $evaluator = new LaravelAiEvaluator;
+    $evaluator = app(LaravelAiEvaluator::class);
 
     expect($evaluator->isConfigured())->toBeFalse();
     $errors = $evaluator->getConfigurationErrors();
@@ -49,7 +49,7 @@ test('it reports not configured when credentials missing', function () {
     ]);
 
     // With lazy-loading, the constructor no longer throws.
-    $evaluator = new LaravelAiEvaluator;
+    $evaluator = app(LaravelAiEvaluator::class);
 
     expect($evaluator->isConfigured())->toBeFalse();
     $errors = $evaluator->getConfigurationErrors();
@@ -59,7 +59,7 @@ test('it reports not configured when credentials missing', function () {
 test('it reports configuration errors', function () {
     config(['paladin.ai.provider' => null]);
 
-    $evaluator = new LaravelAiEvaluator;
+    $evaluator = app(LaravelAiEvaluator::class);
 
     $errors = $evaluator->getConfigurationErrors();
     expect($errors)->not->toBeEmpty();
@@ -72,7 +72,7 @@ test('it reports empty errors when properly configured', function () {
         'paladin.ai.credentials.gemini_api_key' => 'test-key',
     ]);
 
-    $evaluator = new LaravelAiEvaluator;
+    $evaluator = app(LaravelAiEvaluator::class);
 
     $errors = $evaluator->getConfigurationErrors();
     expect($errors)->toBeEmpty();
@@ -90,7 +90,7 @@ test('it analyzes issues using issue analyzer agent', function () {
 
     app()->instance(AgentFactory::class, $mockFactory);
 
-    $evaluator = new LaravelAiEvaluator;
+    $evaluator = app(LaravelAiEvaluator::class);
     $result = $evaluator->analyzeIssues($logEntries);
 
     expect($result)->toBe($expectedIssues);
@@ -112,7 +112,7 @@ test('it generates prompt using prompt generator agent', function () {
 
     app()->instance(AgentFactory::class, $mockFactory);
 
-    $evaluator = new LaravelAiEvaluator;
+    $evaluator = app(LaravelAiEvaluator::class);
     $result = $evaluator->generatePrompt($issue, $testFailureOutput);
 
     expect($result)->toBe($expectedPrompt);
