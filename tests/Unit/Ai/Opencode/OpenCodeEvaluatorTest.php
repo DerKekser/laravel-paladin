@@ -1,18 +1,18 @@
 <?php
 
-use Kekser\LaravelPaladin\Ai\Opencode\OpenCodeEvaluator;
-use Kekser\LaravelPaladin\Services\OpenCodeRunner;
 use Kekser\LaravelPaladin\Ai\Opencode\Agents\IssueAnalyzer;
 use Kekser\LaravelPaladin\Ai\Opencode\Agents\PromptGenerator;
+use Kekser\LaravelPaladin\Ai\Opencode\OpenCodeEvaluator;
+use Kekser\LaravelPaladin\Services\OpenCodeRunner;
 
 beforeEach(function () {
     $this->runnerMock = Mockery::mock(OpenCodeRunner::class);
     $this->analyzerMock = Mockery::mock(IssueAnalyzer::class);
     $this->generatorMock = Mockery::mock(PromptGenerator::class);
 
-    $this->evaluator = new OpenCodeEvaluator();
+    $this->evaluator = new OpenCodeEvaluator;
 
-    $reflection = new \ReflectionClass(OpenCodeEvaluator::class);
+    $reflection = new ReflectionClass(OpenCodeEvaluator::class);
 
     $runnerProp = $reflection->getProperty('runner');
     $runnerProp->setAccessible(true);

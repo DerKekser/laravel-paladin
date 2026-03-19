@@ -30,7 +30,10 @@ class WorktreeSetup
             // 3. Create storage directories
             $this->createStorageDirectories($worktreePath);
 
-            // 4. Custom commands
+            // 4. Laravel Boost
+            (new LaravelBoostService)->ensureBoosted($worktreePath);
+
+            // 5. Custom commands
             $this->runCustomCommands($worktreePath);
 
             Log::info('[Paladin] Worktree setup completed successfully');

@@ -123,6 +123,21 @@ return [
 
         /*
         |----------------------------------------------------------------------
+        | Laravel Boost Configuration
+        |----------------------------------------------------------------------
+        |
+        | Laravel Boost is an optional performance optimization suite.
+        | When enabled, Paladin will ensure it is correctly installed or
+        | updated in each new worktree it creates.
+        |
+        | Default: true
+        |
+        */
+
+        'laravel_boost_enabled' => env('PALADIN_LARAVEL_BOOST_ENABLED', true),
+
+        /*
+        |----------------------------------------------------------------------
         | Worktree Setup Configuration
         |----------------------------------------------------------------------
         |

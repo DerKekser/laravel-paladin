@@ -5,10 +5,10 @@ use Kekser\LaravelPaladin\Services\OpenCodeRunner;
 
 beforeEach(function () {
     $this->runnerMock = Mockery::mock(OpenCodeRunner::class);
-    $this->generator = new PromptGenerator();
+    $this->generator = new PromptGenerator;
 
     // Inject mock via reflection
-    $reflection = new \ReflectionClass(PromptGenerator::class);
+    $reflection = new ReflectionClass(PromptGenerator::class);
     $property = $reflection->getProperty('runner');
     $property->setAccessible(true);
     $property->setValue($this->generator, $this->runnerMock);

@@ -3,7 +3,8 @@
 use Kekser\LaravelPaladin\Ai\Concerns\InteractsWithLogEntries;
 
 test('it formats log entries', function () {
-    $trait = new class {
+    $trait = new class
+    {
         use InteractsWithLogEntries {
             formatLogEntries as public;
         }
@@ -34,14 +35,15 @@ test('it formats log entries', function () {
 });
 
 test('it handles missing fields', function () {
-    $trait = new class {
+    $trait = new class
+    {
         use InteractsWithLogEntries {
             formatLogEntries as public;
         }
     };
 
     $logEntries = [
-        []
+        [],
     ];
 
     $result = $trait->formatLogEntries($logEntries);
