@@ -14,7 +14,6 @@ use Kekser\LaravelPaladin\Services\TemplateGenerator;
 use Kekser\LaravelPaladin\Services\TestRunner;
 use Kekser\LaravelPaladin\Services\WorktreeManager;
 use Kekser\LaravelPaladin\Services\WorktreeSetup;
-use Mockery;
 
 beforeEach(function () {
     $this->testLogPath = storage_path('logs/test-paladin.log');
