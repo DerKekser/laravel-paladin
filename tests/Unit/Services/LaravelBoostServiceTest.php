@@ -1,7 +1,5 @@
 <?php
 
-use Illuminate\Contracts\Process\ProcessResult;
-use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use Kekser\LaravelPaladin\Services\LaravelBoostService;
@@ -21,13 +19,29 @@ it('skips if disabled in config', function () {
     Process::assertNothingRan();
 });
 
-it('runs boost install if not installed', function () {
+it('returns false if artisan missing', function () {
+    config(['paladin.worktree.laravel_boost_enabled' => true]);
+    File::shouldReceive('exists')->with($this->worktreePath.'/artisan')->andReturn(false);
+    Process::fake();
+
+    $result = $this->service->ensureBoosted($this->worktreePath);
+
+    expect($result)->toBeFalse();
+    Process::assertNothingRan();
+});
+
+it('runs boost install when boost is in dependencies but not yet set up', function () {
     config(['paladin.worktree.laravel_boost_enabled' => true]);
     File::shouldReceive('exists')->with($this->worktreePath.'/artisan')->andReturn(true);
+    File::shouldReceive('exists')->with($this->worktreePath.'/composer.json')->andReturn(true);
+    File::shouldReceive('get')->with($this->worktreePath.'/composer.json')->andReturn(json_encode([
+        'require' => ['laravel/boost' => '^2.3'],
+    ]));
 
     Process::fake([
-        'php artisan list boost' => Process::result('No commands found in the boost namespace.', 1),
-        'php artisan boost:install --no-interaction' => Process::result('Installed', 0),
+        'php artisan package:discover*' => Process::result('', 0),
+        'php artisan list boost*' => Process::result('No commands found', 1),
+        'php artisan boost:install*' => Process::result('Installed', 0),
     ]);
 
     $result = $this->service->ensureBoosted($this->worktreePath);
@@ -38,13 +52,18 @@ it('runs boost install if not installed', function () {
     });
 });
 
-it('runs boost update if already installed', function () {
+it('runs boost update when boost is already installed', function () {
     config(['paladin.worktree.laravel_boost_enabled' => true]);
     File::shouldReceive('exists')->with($this->worktreePath.'/artisan')->andReturn(true);
+    File::shouldReceive('exists')->with($this->worktreePath.'/composer.json')->andReturn(true);
+    File::shouldReceive('get')->with($this->worktreePath.'/composer.json')->andReturn(json_encode([
+        'require-dev' => ['laravel/boost' => '^2.3'],
+    ]));
 
     Process::fake([
-        'php artisan list boost' => Process::result('boost:install  Install boost', 0),
-        'php artisan boost:update --no-interaction' => Process::result('Updated', 0),
+        'php artisan package:discover*' => Process::result('', 0),
+        'php artisan list boost*' => Process::result("boost:install\nboost:update", 0),
+        'php artisan boost:update*' => Process::result('Updated', 0),
     ]);
 
     $result = $this->service->ensureBoosted($this->worktreePath);
@@ -58,86 +77,139 @@ it('runs boost update if already installed', function () {
     });
 });
 
-it('returns false if artisan missing', function () {
-    config(['paladin.worktree.laravel_boost_enabled' => true]);
-    File::shouldReceive('exists')->with($this->worktreePath.'/artisan')->andReturn(false);
-    Process::fake();
-
-    $result = $this->service->ensureBoosted($this->worktreePath);
-
-    expect($result)->toBeFalse();
-    Process::assertNothingRan();
-});
-
-it('handles boost install failure', function () {
+it('installs boost via composer when not in dependencies', function () {
     config(['paladin.worktree.laravel_boost_enabled' => true]);
     File::shouldReceive('exists')->with($this->worktreePath.'/artisan')->andReturn(true);
-
-    $processResultFail = Mockery::mock(ProcessResult::class);
-    $processResultFail->shouldReceive('successful')->andReturn(false);
-    $processResultFail->shouldReceive('failed')->andReturn(true);
-    $processResultFail->shouldReceive('output')->andReturn('Error Output');
-    $processResultFail->shouldReceive('exitCode')->andReturn(1);
-
-    $processResultSuccess = Mockery::mock(ProcessResult::class);
-    $processResultSuccess->shouldReceive('successful')->andReturn(true);
-    $processResultSuccess->shouldReceive('failed')->andReturn(false);
-    $processResultSuccess->shouldReceive('output')->andReturn('No commands found in the boost namespace.');
-
-    $processPending = Mockery::mock(PendingProcess::class);
-    $processPending->shouldReceive('path')->with($this->worktreePath)->andReturnSelf();
-    $processPending->shouldReceive('run')->with('php artisan list boost')->andReturn($processResultSuccess);
-    $processPending->shouldReceive('run')->with('php artisan boost:install --no-interaction')->andReturn($processResultFail);
-
-    Process::swap($processPending);
-
-    $result = $this->service->ensureBoosted($this->worktreePath);
-
-    expect($result)->toBeFalse();
-
-    Process::spy();
-});
-
-it('handles boost update failure', function () {
-    config(['paladin.worktree.laravel_boost_enabled' => true]);
-    File::shouldReceive('exists')->with($this->worktreePath.'/artisan')->andReturn(true);
-
-    $processResultFail = Mockery::mock(ProcessResult::class);
-    $processResultFail->shouldReceive('successful')->andReturn(false);
-    $processResultFail->shouldReceive('failed')->andReturn(true);
-    $processResultFail->shouldReceive('output')->andReturn('Error Output');
-    $processResultFail->shouldReceive('exitCode')->andReturn(1);
-
-    $processResultSuccess = Mockery::mock(ProcessResult::class);
-    $processResultSuccess->shouldReceive('successful')->andReturn(true);
-    $processResultSuccess->shouldReceive('failed')->andReturn(false);
-    $processResultSuccess->shouldReceive('output')->andReturn('boost:install  Install boost');
-
-    $processPending = Mockery::mock(PendingProcess::class);
-    $processPending->shouldReceive('path')->with($this->worktreePath)->andReturnSelf();
-    $processPending->shouldReceive('run')->with('php artisan list boost')->andReturn($processResultSuccess);
-    $processPending->shouldReceive('run')->with('php artisan boost:update --no-interaction')->andReturn($processResultFail);
-
-    Process::swap($processPending);
-
-    $result = $this->service->ensureBoosted($this->worktreePath);
-
-    expect($result)->toBeFalse();
-
-    Process::spy();
-});
-
-it('handles command failure', function () {
-    config(['paladin.worktree.laravel_boost_enabled' => true]);
-    File::shouldReceive('exists')->with($this->worktreePath.'/artisan')->andReturn(true);
+    File::shouldReceive('exists')->with($this->worktreePath.'/composer.json')->andReturn(true);
+    File::shouldReceive('get')->with($this->worktreePath.'/composer.json')->andReturn(json_encode([
+        'require' => ['laravel/framework' => '^11.0'],
+    ]));
 
     Process::fake([
-        '*' => function () {
-            throw new Exception('Process failed');
-        },
+        'composer require laravel/boost*' => Process::result('Installed', 0),
+        'php artisan package:discover*' => Process::result('', 0),
+        'php artisan list boost*' => Process::result('No commands found', 1),
+        'php artisan boost:install*' => Process::result('Installed', 0),
     ]);
 
     $result = $this->service->ensureBoosted($this->worktreePath);
 
-    expect($result)->toBeFalse();
+    expect($result)->toBeTrue();
+    Process::assertRan(function ($process) {
+        return str_contains($process->command, 'composer require laravel/boost');
+    });
+    Process::assertRan(function ($process) {
+        return str_contains($process->command, 'boost:install');
+    });
+});
+
+it('returns true even if composer install of boost fails', function () {
+    config(['paladin.worktree.laravel_boost_enabled' => true]);
+    File::shouldReceive('exists')->with($this->worktreePath.'/artisan')->andReturn(true);
+    File::shouldReceive('exists')->with($this->worktreePath.'/composer.json')->andReturn(true);
+    File::shouldReceive('get')->with($this->worktreePath.'/composer.json')->andReturn(json_encode([
+        'require' => ['laravel/framework' => '^11.0'],
+    ]));
+
+    Process::fake([
+        'composer require laravel/boost*' => Process::result('Error', 1),
+    ]);
+
+    $result = $this->service->ensureBoosted($this->worktreePath);
+
+    expect($result)->toBeTrue();
+    Process::assertRan(function ($process) {
+        return str_contains($process->command, 'composer require laravel/boost');
+    });
+});
+
+it('returns true even if boost install command fails', function () {
+    config(['paladin.worktree.laravel_boost_enabled' => true]);
+    File::shouldReceive('exists')->with($this->worktreePath.'/artisan')->andReturn(true);
+    File::shouldReceive('exists')->with($this->worktreePath.'/composer.json')->andReturn(true);
+    File::shouldReceive('get')->with($this->worktreePath.'/composer.json')->andReturn(json_encode([
+        'require' => ['laravel/boost' => '^2.3'],
+    ]));
+
+    Process::fake([
+        'php artisan package:discover*' => Process::result('', 0),
+        'php artisan list boost*' => Process::result('No commands found', 1),
+        'php artisan boost:install*' => Process::result('Error', 1),
+    ]);
+
+    $result = $this->service->ensureBoosted($this->worktreePath);
+
+    expect($result)->toBeTrue();
+});
+
+it('returns true even if boost update command fails', function () {
+    config(['paladin.worktree.laravel_boost_enabled' => true]);
+    File::shouldReceive('exists')->with($this->worktreePath.'/artisan')->andReturn(true);
+    File::shouldReceive('exists')->with($this->worktreePath.'/composer.json')->andReturn(true);
+    File::shouldReceive('get')->with($this->worktreePath.'/composer.json')->andReturn(json_encode([
+        'require' => ['laravel/boost' => '^2.3'],
+    ]));
+
+    Process::fake([
+        'php artisan package:discover*' => Process::result('', 0),
+        'php artisan list boost*' => Process::result("boost:install\nboost:update", 0),
+        'php artisan boost:update*' => Process::result('Error', 1),
+    ]);
+
+    $result = $this->service->ensureBoosted($this->worktreePath);
+
+    expect($result)->toBeTrue();
+});
+
+it('returns true on exception', function () {
+    config(['paladin.worktree.laravel_boost_enabled' => true]);
+    File::shouldReceive('exists')->with($this->worktreePath.'/artisan')->andReturn(true);
+    File::shouldReceive('exists')->with($this->worktreePath.'/composer.json')->andReturn(true);
+    File::shouldReceive('get')->with($this->worktreePath.'/composer.json')->andThrow(new Exception('Disk error'));
+    Process::fake();
+
+    $result = $this->service->ensureBoosted($this->worktreePath);
+
+    expect($result)->toBeTrue();
+});
+
+it('handles invalid json in composer.json', function () {
+    config(['paladin.worktree.laravel_boost_enabled' => true]);
+    File::shouldReceive('exists')->with($this->worktreePath.'/artisan')->andReturn(true);
+    File::shouldReceive('exists')->with($this->worktreePath.'/composer.json')->andReturn(true);
+    File::shouldReceive('get')->with($this->worktreePath.'/composer.json')->andReturn('invalid json');
+
+    Process::fake([
+        'composer require laravel/boost*' => Process::result('Installed', 0),
+        'php artisan package:discover*' => Process::result('', 0),
+        'php artisan list boost*' => Process::result('No commands found', 1),
+        'php artisan boost:install*' => Process::result('Installed', 0),
+    ]);
+
+    $result = $this->service->ensureBoosted($this->worktreePath);
+
+    expect($result)->toBeTrue();
+    Process::assertRan(function ($process) {
+        return str_contains($process->command, 'composer require laravel/boost');
+    });
+});
+
+it('handles missing composer.json', function () {
+    config(['paladin.worktree.laravel_boost_enabled' => true]);
+    File::shouldReceive('exists')->with($this->worktreePath.'/artisan')->andReturn(true);
+    File::shouldReceive('exists')->with($this->worktreePath.'/composer.json')->andReturn(false);
+
+    Process::fake([
+        'composer require laravel/boost*' => Process::result('Installed', 0),
+        'php artisan package:discover*' => Process::result('', 0),
+        'php artisan list boost*' => Process::result('No commands found', 1),
+        'php artisan boost:install*' => Process::result('Installed', 0),
+    ]);
+
+    $result = $this->service->ensureBoosted($this->worktreePath);
+
+    expect($result)->toBeTrue();
+    Process::assertRan(function ($process) {
+        return str_contains($process->command, 'composer require laravel/boost');
+    });
 });
