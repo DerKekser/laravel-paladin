@@ -11,6 +11,10 @@ Laravel Paladin is an intelligent Laravel package that monitors your application
 
 This package was inspired by Taylor Otwell's demonstration of a self-healing Laravel application at Laracon 2025 in Amsterdam. After seeing the potential of AI-powered autonomous error fixing, I set out to build a practical implementation that any Laravel developer could use in their applications.
 
+## Documentation
+
+For full documentation, visit [https://derkekser.github.io/laravel-paladin-docs/](https://derkekser.github.io/laravel-paladin-docs/)
+
 ## Features
 
 - 🤖 **AI-Powered Analysis**: Supports multiple AI providers including OpenAI, Anthropic Claude, Google Gemini, and more
@@ -151,7 +155,7 @@ php artisan paladin:status --status=in_progress
 php artisan paladin:status --limit=20
 
 # Show detailed information including stack traces
-php artisan paladin:status --verbose
+php artisan paladin:status --details
 ```
 
 ### Cleanup Old Worktrees
